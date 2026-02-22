@@ -40,7 +40,6 @@ public class User implements UserDetails {
     
     @Column(nullable = false)
     private String password;
-    
     private String nom;
     private String prenom;
     private String telephone;
