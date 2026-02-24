@@ -25,15 +25,17 @@ public class RegisterRequest {
     private String telephone;
 
     @NotBlank(message = "Le rôle est requis")
-    private String role; // "COACH" ou "ATHLETE"
+    private String role; // COACH ou ATHLETE
 
-    private boolean enabled = true;
-
-    // Champs spécifiques pour Coach
+    // =============================
+    // Champs spécifiques Coach
+    // =============================
     private String specialite;
     private Integer experience;
 
-    // Champs spécifiques pour Athlète
+    // =============================
+    // Champs spécifiques Athlète
+    // =============================
     private String sport;
     private String niveau; // DEBUTANT, INTERMEDIAIRE, CONFIRME, PROFESSIONNEL
 }

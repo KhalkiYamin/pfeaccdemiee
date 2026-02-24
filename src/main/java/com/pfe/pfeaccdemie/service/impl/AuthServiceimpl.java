@@ -2,6 +2,7 @@ package com.pfe.pfeaccdemie.service.impl;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,8 +18,6 @@ import com.pfe.pfeaccdemie.service.JwtService;
 
 import lombok.RequiredArgsConstructor;
 
-import java.io.Serializable;
-
 @Service
 @RequiredArgsConstructor
 public class AuthServiceimpl implements AuthService {
@@ -30,23 +29,56 @@ public class AuthServiceimpl implements AuthService {
 
     @Override
     public AuthResponse register(RegisterRequest request) {
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Cet email est déjà utilisé");
         }
 
-        Serializable role = request.getRole() != null ? Role.valueOf(request.getRole()) : Role.ATHLETE;
+        // ✅ role safe parse
+        Role role = Role.ATHLETE;
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            try {
+                role = Role.valueOf(request.getRole().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Rôle invalide: " + request.getRole());
+            }
+        }
+
+        boolean isCoach = role == Role.COACH;
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .nom(request.getNom())
                 .prenom(request.getPrenom())
                 .telephone(request.getTelephone())
-                .role((Role) role)
-                .enabled(true)
+                .role(role)
+                .enabled(!isCoach) // ✅ COACH => false, ATHLETE => true
+
+                // ✅ Champs COACH
+                .specialite(request.getSpecialite())
+                .experience(request.getExperience())
+
+                // ✅ Champs ATHLETE
+                .sport(request.getSport())
+                .niveau(request.getNiveau())
                 .build();
 
         userRepository.save(user);
 
+        // ✅ coach pending: no token
+        if (isCoach) {
+            return AuthResponse.builder()
+                    .token(null)
+                    .email(user.getEmail())
+                    .nom(user.getNom())
+                    .prenom(user.getPrenom())
+                    .role(user.getRole())
+                    .message("Compte coach créé. En attente de validation par l'admin.")
+                    .build();
+        }
+
+        // ✅ athlete: token
         String token = jwtService.generateToken(user);
 
         return AuthResponse.builder()
@@ -61,6 +93,7 @@ public class AuthServiceimpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -68,12 +101,18 @@ public class AuthServiceimpl implements AuthService {
                             request.getPassword()
                     )
             );
+        } catch (DisabledException e) {
+            throw new RuntimeException("Compte en attente de validation par l'admin");
         } catch (BadCredentialsException e) {
             throw new RuntimeException("Email ou mot de passe incorrect");
         }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (!user.isEnabled()) {
+            throw new RuntimeException("Compte en attente de validation par l'admin");
+        }
 
         String token = jwtService.generateToken(user);
 

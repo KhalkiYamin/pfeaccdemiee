@@ -30,33 +30,46 @@ import lombok.NoArgsConstructor;
 @Builder
 @Inheritance(strategy = InheritanceType.JOINED)
 public class User implements UserDetails {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @Column(unique = true, nullable = false)
     private String email;
-    
+
     @Column(nullable = false)
     private String password;
+
     private String nom;
     private String prenom;
     private String telephone;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
-    
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
-    
+
+    // =============================
+    // Champs spécifiques Coach
+    // =============================
+    private String specialite;
+    private Integer experience;
+
+    // =============================
+    // Champs spécifiques Athlète
+    // =============================
+    private String sport;
+    private String niveau;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
-    
+
     @Override
     public String getPassword() {
         return password;
@@ -66,22 +79,22 @@ public class User implements UserDetails {
     public String getUsername() {
         return email;
     }
-    
+
     @Override
     public boolean isAccountNonExpired() {
         return true;
     }
-    
+
     @Override
     public boolean isAccountNonLocked() {
         return true;
     }
-    
+
     @Override
     public boolean isCredentialsNonExpired() {
         return true;
     }
-    
+
     @Override
     public boolean isEnabled() {
         return enabled;

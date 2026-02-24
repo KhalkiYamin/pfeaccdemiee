@@ -22,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+
+
 public class SecurityConfig {
     
     private final JwtAuthenticationFilter jwtAuthFilter;
