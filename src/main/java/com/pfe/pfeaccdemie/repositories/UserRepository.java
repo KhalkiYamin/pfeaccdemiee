@@ -18,6 +18,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByRole(Role role);
 
-    // ✅ coach pending => role=COACH , enabled=false
+    List<User> findByRoleAndAdminApproved(Role role, boolean adminApproved);
+
     List<User> findByRoleAndEnabled(Role role, boolean enabled);
+
+    Optional<User> findByActivationToken(String activationToken);
 }

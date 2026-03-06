@@ -52,6 +52,13 @@ public class User implements UserDetails {
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Builder.Default
+    private boolean adminApproved = false;
+
+    private String activationToken;
 
     // =============================
     // Champs spécifiques Coach
