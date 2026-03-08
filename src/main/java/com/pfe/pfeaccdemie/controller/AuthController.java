@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "http://localhost:4200")
 @RequiredArgsConstructor
+
 public class AuthController {
 
     private final AuthService authService;
@@ -34,6 +35,10 @@ public class AuthController {
     public ResponseEntity<String> verifyEmail(@RequestParam String token) {
         String result = authService.verifyEmail(token);
         return ResponseEntity.ok(result);
+    }
+    @PutMapping("/approve-coach/{id}")
+    public ResponseEntity<String> approveCoach(@PathVariable Long id) {
+        return ResponseEntity.ok(authService.approveCoach(id));
     }
 
 }

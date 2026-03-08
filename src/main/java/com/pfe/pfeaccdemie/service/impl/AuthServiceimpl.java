@@ -1,4 +1,5 @@
 package com.pfe.pfeaccdemie.service.impl;
+
 import java.util.UUID;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,37 +38,49 @@ public class AuthServiceimpl implements AuthService {
             throw new RuntimeException("Cet email est déjà utilisé");
         }
 
-        // role safe parse
         Role role = Role.ATHLETE;
         if (request.getRole() != null && !request.getRole().isBlank()) {
             try {
                 role = Role.valueOf(request.getRole().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Rôle invalide: " + request.getRole());
+                throw new RuntimeException("Rôle invalide : " + request.getRole());
             }
         }
 
         boolean isCoach = role == Role.COACH;
+        boolean isAdmin = role == Role.ADMIN;
+
         String activationToken = UUID.randomUUID().toString();
 
-        User user = User.builder()
+        User.UserBuilder userBuilder = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .nom(request.getNom())
                 .prenom(request.getPrenom())
                 .telephone(request.getTelephone())
                 .role(role)
-                .enabled(false)
-                .emailVerified(false)
-                .adminApproved(!isCoach) // ATHLETE => auto-approved, COACH => needs admin
-                .activationToken(activationToken)
-                // Champs COACH
                 .specialite(request.getSpecialite())
                 .experience(request.getExperience())
-                // Champs ATHLETE
                 .sport(request.getSport())
-                .niveau(request.getNiveau())
-                .build();
+                .niveau(request.getNiveau());
+
+        User user;
+
+        if (isAdmin) {
+            user = userBuilder
+                    .enabled(true)
+                    .emailVerified(true)
+                    .adminApproved(true)
+                    .activationToken(null)
+                    .build();
+        } else {
+            user = userBuilder
+                    .enabled(false)
+                    .emailVerified(false)
+                    .adminApproved(!isCoach) // ATHLETE => auto-approved, COACH => needs admin
+                    .activationToken(activationToken)
+                    .build();
+        }
 
         userRepository.save(user);
 
@@ -84,8 +97,18 @@ public class AuthServiceimpl implements AuthService {
                     .build();
         }
 
-        // Athlete: envoi email de vérification immédiat
-        emailService.sendActivationEmail(user.getEmail(), fullName, activationToken);
+        if (role == Role.ATHLETE) {
+            emailService.sendActivationEmail(user.getEmail(), fullName, activationToken);
+
+            return AuthResponse.builder()
+                    .token(null)
+                    .email(user.getEmail())
+                    .nom(user.getNom())
+                    .prenom(user.getPrenom())
+                    .role(user.getRole())
+                    .message("Inscription réussie. Veuillez vérifier votre email pour activer votre compte.")
+                    .build();
+        }
 
         return AuthResponse.builder()
                 .token(null)
@@ -93,7 +116,7 @@ public class AuthServiceimpl implements AuthService {
                 .nom(user.getNom())
                 .prenom(user.getPrenom())
                 .role(user.getRole())
-                .message("Inscription réussie. Veuillez vérifier votre email pour activer votre compte.")
+                .message("Compte administrateur créé avec succès.")
                 .build();
     }
 
@@ -106,7 +129,6 @@ public class AuthServiceimpl implements AuthService {
             return "Votre email est déjà vérifié.";
         }
 
-        // Pour les coachs, vérifier que l'admin a approuvé
         if (user.getRole() == Role.COACH && !user.isAdminApproved()) {
             throw new RuntimeException("Votre compte n'a pas encore été approuvé par l'administrateur.");
         }
@@ -135,13 +157,11 @@ public class AuthServiceimpl implements AuthService {
             return "Ce coach est déjà approuvé.";
         }
 
-        // Générer un nouveau token si nécessaire
         String activationToken = UUID.randomUUID().toString();
         coach.setAdminApproved(true);
         coach.setActivationToken(activationToken);
         userRepository.save(coach);
 
-        // Envoyer l'email de vérification au coach
         String fullName = coach.getPrenom() + " " + coach.getNom();
         emailService.sendCoachApprovedEmail(coach.getEmail(), fullName, activationToken);
 
@@ -151,6 +171,12 @@ public class AuthServiceimpl implements AuthService {
     @Override
     public AuthResponse login(LoginRequest request) {
 
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        String roleValue = user.getRole() == null ? "" : user.getRole().toString().toUpperCase();
+        boolean isAdmin = "ADMIN".equals(roleValue) || "ROLE_ADMIN".equals(roleValue);
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -159,20 +185,21 @@ public class AuthServiceimpl implements AuthService {
                     )
             );
         } catch (DisabledException e) {
-            throw new RuntimeException("Compte non activé. Veuillez vérifier votre email.");
+            if (!isAdmin) {
+                throw new RuntimeException("Compte non activé. Veuillez vérifier votre email.");
+            }
         } catch (BadCredentialsException e) {
             throw new RuntimeException("Email ou mot de passe incorrect");
         }
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        if (!isAdmin) {
+            if (!user.isEnabled()) {
+                throw new RuntimeException("Compte non activé. Veuillez vérifier votre email.");
+            }
 
-        if (!user.isEnabled()) {
-            throw new RuntimeException("Compte non activé. Veuillez vérifier votre email.");
-        }
-
-        if (!user.isEmailVerified()) {
-            throw new RuntimeException("Veuillez vérifier votre email avant de vous connecter.");
+            if (!user.isEmailVerified()) {
+                throw new RuntimeException("Veuillez vérifier votre email avant de vous connecter.");
+            }
         }
 
         String token = jwtService.generateToken(user);
