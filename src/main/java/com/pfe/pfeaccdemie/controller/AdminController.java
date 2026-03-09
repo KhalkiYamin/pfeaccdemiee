@@ -39,4 +39,8 @@ public class AdminController {
         userRepository.delete(coach); // أو تنجم تعمل status REJECTED إذا تحب
         return "Coach refusé";
     }
+    @GetMapping("/coaches")
+    public List<User> getAllCoaches() {
+        return userRepository.findByRole(Role.COACH);
+    }
 }
