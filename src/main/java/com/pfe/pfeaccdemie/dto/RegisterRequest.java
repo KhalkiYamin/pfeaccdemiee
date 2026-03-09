@@ -30,12 +30,14 @@ public class RegisterRequest {
     // =============================
     // Champs spécifiques Coach
     // =============================
-    private String specialite;
+
+    private Long specialiteId;
     private Integer experience;
 
     // =============================
     // Champs spécifiques Athlète
     // =============================
-    private String sport;
+
+    private Long sportId;
     private String niveau; // DEBUTANT, INTERMEDIAIRE, CONFIRME, PROFESSIONNEL
 }

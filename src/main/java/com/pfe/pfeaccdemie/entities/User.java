@@ -16,6 +16,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -52,6 +54,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
+
     @Builder.Default
     private boolean emailVerified = false;
 
@@ -63,13 +66,19 @@ public class User implements UserDetails {
     // =============================
     // Champs spécifiques Coach
     // =============================
-    private String specialite;
+    @ManyToOne
+    @JoinColumn(name = "specialite_id")
+    private Category specialite;
+
     private Integer experience;
 
     // =============================
     // Champs spécifiques Athlète
     // =============================
-    private String sport;
+    @ManyToOne
+    @JoinColumn(name = "sport_id")
+    private Category sport;
+
     private String niveau;
 
     @Override

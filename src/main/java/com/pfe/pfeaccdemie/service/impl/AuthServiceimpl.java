@@ -12,8 +12,10 @@ import org.springframework.stereotype.Service;
 import com.pfe.pfeaccdemie.dto.AuthResponse;
 import com.pfe.pfeaccdemie.dto.LoginRequest;
 import com.pfe.pfeaccdemie.dto.RegisterRequest;
+import com.pfe.pfeaccdemie.entities.Category;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.repositories.CategoryRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.AuthService;
 import com.pfe.pfeaccdemie.service.EmailService;
@@ -26,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthServiceimpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -52,6 +55,19 @@ public class AuthServiceimpl implements AuthService {
 
         String activationToken = UUID.randomUUID().toString();
 
+        Category specialite = null;
+        Category sport = null;
+
+        if (isCoach && request.getSpecialiteId() != null) {
+            specialite = categoryRepository.findById(request.getSpecialiteId())
+                    .orElseThrow(() -> new RuntimeException("Catégorie spécialité introuvable"));
+        }
+
+        if (role == Role.ATHLETE && request.getSportId() != null) {
+            sport = categoryRepository.findById(request.getSportId())
+                    .orElseThrow(() -> new RuntimeException("Catégorie sport introuvable"));
+        }
+
         User.UserBuilder userBuilder = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -59,9 +75,9 @@ public class AuthServiceimpl implements AuthService {
                 .prenom(request.getPrenom())
                 .telephone(request.getTelephone())
                 .role(role)
-                .specialite(request.getSpecialite())
+                .specialite(specialite)
                 .experience(request.getExperience())
-                .sport(request.getSport())
+                .sport(sport)
                 .niveau(request.getNiveau());
 
         User user;
@@ -77,7 +93,7 @@ public class AuthServiceimpl implements AuthService {
             user = userBuilder
                     .enabled(false)
                     .emailVerified(false)
-                    .adminApproved(!isCoach) // ATHLETE => auto-approved, COACH => needs admin
+                    .adminApproved(!isCoach)
                     .activationToken(activationToken)
                     .build();
         }
