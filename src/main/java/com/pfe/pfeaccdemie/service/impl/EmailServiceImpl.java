@@ -1,5 +1,4 @@
 package com.pfe.pfeaccdemie.service.impl;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +70,11 @@ public class EmailServiceImpl implements EmailService {
             logger.error("Erreur lors de l'envoi de l'email d'approbation à: {}", toEmail, e);
             throw new RuntimeException("Échec de l'envoi de l'email d'approbation", e);
         }
+    }
+
+    @Override
+    public void sendEmail(String to, String subject, String text) {
+
     }
 
     @Override

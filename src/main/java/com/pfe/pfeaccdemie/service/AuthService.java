@@ -13,4 +13,7 @@ public interface AuthService {
     String verifyEmail(String token);
 
     String approveCoach(Long coachId);
+    void sendResetCode(String email);
+    void verifyResetCode(String email, String code);
+    void resetPassword(String email, String code, String newPassword);
 }

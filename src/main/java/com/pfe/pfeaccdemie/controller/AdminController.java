@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.User;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
+import com.pfe.pfeaccdemie.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +18,22 @@ import lombok.RequiredArgsConstructor;
 public class AdminController {
 
     private final UserRepository userRepository;
+    private final EmailService emailService;
+
+    @GetMapping("/users")
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    @GetMapping("/athletes")
+    public List<User> getAthletes() {
+        return userRepository.findByRole(Role.ATHLETE);
+    }
+
+    @GetMapping("/coaches")
+    public List<User> getAllCoaches() {
+        return userRepository.findByRole(Role.COACH);
+    }
 
     @GetMapping("/coaches/pending")
     public List<User> getPendingCoaches() {
@@ -27,16 +44,33 @@ public class AdminController {
     public String approveCoach(@PathVariable Long id) {
         User coach = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Coach introuvable"));
+
         coach.setEnabled(true);
+        coach.setAdminApproved(true);
         userRepository.save(coach);
-        return "Coach approuvé";
+
+        emailService.sendCoachApprovedEmail(
+                coach.getEmail(),
+                coach.getPrenom() + " " + coach.getNom(),
+                coach.getActivationToken()
+        );
+
+        return "Coach approuvé et email envoyé";
     }
 
     @PutMapping("/coaches/{id}/reject")
     public String rejectCoach(@PathVariable Long id) {
         User coach = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Coach introuvable"));
-        userRepository.delete(coach); // أو تنجم تعمل status REJECTED إذا تحب
+        userRepository.delete(coach);
         return "Coach refusé";
+    }
+
+    @DeleteMapping("/users/{id}")
+    public String deleteUser(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+        userRepository.delete(user);
+        return "Utilisateur supprimé";
     }
 }

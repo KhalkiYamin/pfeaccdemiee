@@ -1,5 +1,6 @@
 package com.pfe.pfeaccdemie.entities;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -63,18 +64,15 @@ public class User implements UserDetails {
 
     private String activationToken;
 
-    // =============================
-    // Champs spécifiques Coach
-    // =============================
+    private String resetCode;
+    private LocalDateTime resetCodeExpiry;
+
     @ManyToOne
     @JoinColumn(name = "specialite_id")
     private Category specialite;
 
     private Integer experience;
 
-    // =============================
-    // Champs spécifiques Athlète
-    // =============================
     @ManyToOne
     @JoinColumn(name = "sport_id")
     private Category sport;

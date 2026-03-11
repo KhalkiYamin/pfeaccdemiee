@@ -1,5 +1,7 @@
 package com.pfe.pfeaccdemie.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.Random;
 import java.util.UUID;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -228,5 +230,66 @@ public class AuthServiceimpl implements AuthService {
                 .role(user.getRole())
                 .message("Connexion réussie")
                 .build();
+    }
+
+    @Override
+    public void sendResetCode(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email introuvable"));
+
+        String code = String.format("%06d", new Random().nextInt(1000000));
+
+        user.setResetCode(code);
+        user.setResetCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        userRepository.save(user);
+
+        String fullName = user.getPrenom() + " " + user.getNom();
+        String subject = "Code de réinitialisation";
+        String text = "Bonjour " + fullName + ",\n\n"
+                + "Votre code de réinitialisation est : " + code + "\n"
+                + "Ce code expire dans 10 minutes.\n\n"
+                + "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.";
+
+        emailService.sendEmail(user.getEmail(), subject, text);
+    }
+    @Override
+    public void verifyResetCode(String email, String code) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email introuvable"));
+
+        if (user.getResetCode() == null || user.getResetCodeExpiry() == null) {
+            throw new RuntimeException("Aucun code trouvé");
+        }
+
+        if (!user.getResetCode().equals(code)) {
+            throw new RuntimeException("Code invalide");
+        }
+
+        if (user.getResetCodeExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Code expiré");
+        }
+    }
+    @Override
+    public void resetPassword(String email, String code, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email introuvable"));
+
+        if (user.getResetCode() == null || user.getResetCodeExpiry() == null) {
+            throw new RuntimeException("Aucun code trouvé");
+        }
+
+        if (!user.getResetCode().equals(code)) {
+            throw new RuntimeException("Code invalide");
+        }
+
+        if (user.getResetCodeExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Code expiré");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetCode(null);
+        user.setResetCodeExpiry(null);
+
+        userRepository.save(user);
     }
 }

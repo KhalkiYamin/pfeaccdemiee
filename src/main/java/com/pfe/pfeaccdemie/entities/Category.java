@@ -2,7 +2,6 @@ package com.pfe.pfeaccdemie.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 @Entity
 @Table(name = "categories")
 @Getter
