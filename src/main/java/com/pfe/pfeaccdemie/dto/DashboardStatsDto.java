@@ -15,4 +15,10 @@ public class DashboardStatsDto {
     private long totalAthletes;
     private long totalCoaches;
     private long pendingCoaches;
+    private long totalResources;
+    private double totalPayments;
+    private int activityRate;
+    private long activeSubscriptions;
+    private long plannedSessions;
+    private int globalSatisfaction;
 }

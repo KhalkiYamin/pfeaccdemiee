@@ -4,8 +4,10 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.pfe.pfeaccdemie.dto.DashboardStatsDto;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.repositories.RessourceSportifRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.EmailService;
 
@@ -19,6 +21,7 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final RessourceSportifRepository ressourceSportifRepository;
 
     @GetMapping("/users")
     public List<User> getAllUsers() {
@@ -72,5 +75,22 @@ public class AdminController {
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
         userRepository.delete(user);
         return "Utilisateur supprimé";
+    }
+
+    @GetMapping("/dashboard")
+    public DashboardStatsDto getDashboardStats() {
+        long totalUsers = userRepository.count();
+        long totalAthletes = userRepository.findByRole(Role.ATHLETE).size();
+        long totalCoaches = userRepository.findByRole(Role.COACH).size();
+        long pendingCoaches = userRepository.findByRoleAndEnabled(Role.COACH, false).size();
+        long totalResources = ressourceSportifRepository.count();
+
+        return DashboardStatsDto.builder()
+                .totalUsers(totalUsers)
+                .totalAthletes(totalAthletes)
+                .totalCoaches(totalCoaches)
+                .pendingCoaches(pendingCoaches)
+                .totalResources(totalResources)
+                .build();
     }
 }

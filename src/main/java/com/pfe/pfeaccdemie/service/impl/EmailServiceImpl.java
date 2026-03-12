@@ -36,7 +36,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(toEmail);
             helper.setSubject("Activation de votre compte - Académie Sportive");
 
-            String activationLink = frontendUrl + "/verify-email?token=" + activationToken;
+            String activationLink = frontendUrl + "/pages/verify-email?token=" + activationToken;
             String emailContent = buildActivationEmailTemplate(fullName, activationLink);
             helper.setText(emailContent, true);
 
@@ -59,7 +59,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(toEmail);
             helper.setSubject("Votre compte coach a été approuvé - Académie Sportive");
 
-            String activationLink = frontendUrl + "/verify-email?token=" + activationToken;
+            String activationLink = frontendUrl + "/pages/verify-email?token=" + activationToken;
             String emailContent = buildCoachApprovedTemplate(fullName, activationLink);
             helper.setText(emailContent, true);
 
@@ -74,9 +74,23 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendEmail(String to, String subject, String text) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
 
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(text, false);
+
+            mailSender.send(message);
+            logger.info("Email envoyé à: {}", to);
+
+        } catch (MessagingException e) {
+            logger.error("Erreur lors de l'envoi de l'email à: {}", to, e);
+            throw new RuntimeException("Échec de l'envoi de l'email", e);
+        }
     }
-
     @Override
     public void sendWelcomeEmail(String toEmail, String fullName) {
         try {

@@ -61,6 +61,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
+                        .requestMatchers("/api/settings/**").permitAll()
+                        .requestMatchers("/api/ressources-sportives/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/coach/**").permitAll()
                         .anyRequest().authenticated()
@@ -88,4 +90,5 @@ public class SecurityConfig {
 
         return source;
     }
+
 }

@@ -14,9 +14,11 @@ import org.springframework.stereotype.Service;
 import com.pfe.pfeaccdemie.dto.AuthResponse;
 import com.pfe.pfeaccdemie.dto.LoginRequest;
 import com.pfe.pfeaccdemie.dto.RegisterRequest;
+import com.pfe.pfeaccdemie.entities.AppSettings;
 import com.pfe.pfeaccdemie.entities.Category;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.repositories.AppSettingsRepository;
 import com.pfe.pfeaccdemie.repositories.CategoryRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.AuthService;
@@ -31,6 +33,7 @@ public class AuthServiceimpl implements AuthService {
 
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final AppSettingsRepository appSettingsRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -54,6 +57,13 @@ public class AuthServiceimpl implements AuthService {
 
         boolean isCoach = role == Role.COACH;
         boolean isAdmin = role == Role.ADMIN;
+
+        AppSettings settings = appSettingsRepository.findAll()
+                .stream()
+                .findFirst()
+                .orElse(null);
+
+        boolean autoApproveCoach = settings != null && settings.isAutoApproveCoach();
 
         String activationToken = UUID.randomUUID().toString();
 
@@ -92,12 +102,30 @@ public class AuthServiceimpl implements AuthService {
                     .activationToken(null)
                     .build();
         } else {
-            user = userBuilder
-                    .enabled(false)
-                    .emailVerified(false)
-                    .adminApproved(!isCoach)
-                    .activationToken(activationToken)
-                    .build();
+            if (isCoach) {
+                if (autoApproveCoach) {
+                    user = userBuilder
+                            .enabled(false)
+                            .emailVerified(false)
+                            .adminApproved(true)
+                            .activationToken(activationToken)
+                            .build();
+                } else {
+                    user = userBuilder
+                            .enabled(false)
+                            .emailVerified(false)
+                            .adminApproved(false)
+                            .activationToken(null)
+                            .build();
+                }
+            } else {
+                user = userBuilder
+                        .enabled(false)
+                        .emailVerified(false)
+                        .adminApproved(true)
+                        .activationToken(activationToken)
+                        .build();
+            }
         }
 
         userRepository.save(user);
@@ -105,6 +133,19 @@ public class AuthServiceimpl implements AuthService {
         String fullName = user.getPrenom() + " " + user.getNom();
 
         if (isCoach) {
+            if (autoApproveCoach) {
+                emailService.sendActivationEmail(user.getEmail(), fullName, activationToken);
+
+                return AuthResponse.builder()
+                        .token(null)
+                        .email(user.getEmail())
+                        .nom(user.getNom())
+                        .prenom(user.getPrenom())
+                        .role(user.getRole())
+                        .message("Compte coach créé. Veuillez vérifier votre email pour activer votre compte.")
+                        .build();
+            }
+
             return AuthResponse.builder()
                     .token(null)
                     .email(user.getEmail())
@@ -252,6 +293,7 @@ public class AuthServiceimpl implements AuthService {
 
         emailService.sendEmail(user.getEmail(), subject, text);
     }
+
     @Override
     public void verifyResetCode(String email, String code) {
         User user = userRepository.findByEmail(email)
@@ -269,6 +311,7 @@ public class AuthServiceimpl implements AuthService {
             throw new RuntimeException("Code expiré");
         }
     }
+
     @Override
     public void resetPassword(String email, String code, String newPassword) {
         User user = userRepository.findByEmail(email)
