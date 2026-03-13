@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class AdminUserDto {
-
     private Long id;
     private String nom;
     private String prenom;
@@ -19,6 +18,7 @@ public class AdminUserDto {
     private String role;
     private String specialite;
     private String sport;
+    private String niveau;
     private String statut;
     private Boolean enabled;
 }

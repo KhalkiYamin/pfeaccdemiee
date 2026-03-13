@@ -1,4 +1,4 @@
-package com.pfe.pfeaccdemie.controllers;
+package com.pfe.pfeaccdemie.controller;
 
 import com.pfe.pfeaccdemie.entities.Category;
 import com.pfe.pfeaccdemie.service.CategoryService;
