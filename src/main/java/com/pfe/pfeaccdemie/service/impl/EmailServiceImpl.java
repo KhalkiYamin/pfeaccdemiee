@@ -76,12 +76,12 @@ public class EmailServiceImpl implements EmailService {
     public void sendEmail(String to, String subject, String text) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(text, false);
+            helper.setText(text, true);
 
             mailSender.send(message);
             logger.info("Email envoyé à: {}", to);
@@ -257,4 +257,29 @@ public class EmailServiceImpl implements EmailService {
             </html>
             """, fullName, frontendUrl);
     }
+    @Override
+    public void sendUserCredentialsEmail(String toEmail, String fullName, String rawPassword) {
+        try {
+            String subject = "Création de votre compte - Académie Sportive";
+
+            String content =
+                    "<div style='font-family: Arial, sans-serif; padding: 20px; color: #333;'>"
+                            + "<h2>Bienvenue " + fullName + " 👋</h2>"
+                            + "<p>Un compte a été créé pour vous par l'administration.</p>"
+                            + "<p><strong>Email :</strong> " + toEmail + "</p>"
+                            + "<p><strong>Mot de passe temporaire :</strong> " + rawPassword + "</p>"
+                            + "<p>Veuillez vous connecter avec ces identifiants.</p>"
+                            + "<p>Nous vous recommandons de changer votre mot de passe après la première connexion.</p>"
+                            + "<br>"
+                            + "<p>Cordialement,<br>L'équipe Académie Sportive</p>"
+                            + "</div>";
+
+            sendEmail(toEmail, subject, content);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'envoi de l'email des identifiants", e);
+        }
+    }
+
+
 }

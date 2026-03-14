@@ -9,4 +9,5 @@ public interface EmailService {
     void sendCoachApprovedEmail(String to, String fullName, String activationToken);
 
     void sendEmail(String to, String subject, String text);
+    void sendUserCredentialsEmail(String toEmail, String fullName, String rawPassword);
 }

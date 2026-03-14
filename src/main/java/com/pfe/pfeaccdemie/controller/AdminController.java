@@ -29,7 +29,6 @@ public class AdminController {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final RessourceSportifRepository ressourceSportifRepository;
-
     private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -46,6 +45,7 @@ public class AdminController {
     @GetMapping("/coaches")
     public List<User> getAllCoaches() {
         return userRepository.findByRole(Role.COACH);
+
     }
 
     @GetMapping("/coaches/pending")
@@ -58,24 +58,46 @@ public class AdminController {
         User coach = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Coach introuvable"));
 
+        String activationToken = UUID.randomUUID().toString();
+
         coach.setEnabled(true);
         coach.setAdminApproved(true);
+        coach.setEmailVerified(false);
+        coach.setActivationToken(activationToken);
+
         userRepository.save(coach);
 
         emailService.sendCoachApprovedEmail(
                 coach.getEmail(),
                 coach.getPrenom() + " " + coach.getNom(),
-                coach.getActivationToken()
+                activationToken
         );
 
         return "Coach approuvé et email envoyé";
     }
-
+    @GetMapping("/coaches/rejected")
+    public List<User> getRejectedCoaches() {
+        return userRepository.findByRoleAndEnabled(Role.COACH, false)
+                .stream()
+                .filter(coach -> !coach.isAdminApproved())
+                .toList();
+    }
     @PutMapping("/coaches/{id}/reject")
     public String rejectCoach(@PathVariable Long id) {
         User coach = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Coach introuvable"));
-        userRepository.delete(coach);
+
+        if (coach.getRole() != Role.COACH) {
+            throw new RuntimeException("Cet utilisateur n'est pas un coach");
+        }
+
+        coach.setEnabled(false);
+        coach.setAdminApproved(false);
+        coach.setEmailVerified(false);
+        coach.setActivationToken(null);
+
+        userRepository.save(coach);
+
         return "Coach refusé";
     }
 
@@ -109,6 +131,7 @@ public class AdminController {
         if (req.getEmail() == null || req.getEmail().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email obligatoire");
         }
+
         if (req.getNom() == null || req.getNom().isBlank()
                 || req.getPrenom() == null || req.getPrenom().isBlank()
                 || req.getRole() == null || req.getRole().isBlank()) {
@@ -133,11 +156,12 @@ public class AdminController {
         user.setTelephone(req.getTelephone());
         user.setRole(role);
 
-        // Mot de passe temporaire (obligatoire car password nullable=false)
+        // Mot de passe temporaire envoyé par email
         String tempPassword = UUID.randomUUID().toString().substring(0, 10);
         user.setPassword(passwordEncoder.encode(tempPassword));
 
-        user.setEmailVerified(false);
+        // Comme le compte est créé par admin, on le considère vérifié
+        user.setEmailVerified(true);
         user.setActivationToken(UUID.randomUUID().toString());
 
         if (role == Role.ATHLETE) {
@@ -150,7 +174,6 @@ public class AdminController {
 
             user.setSport(sport);
             user.setNiveau(req.getNiveau());
-
             user.setEnabled(true);
             user.setAdminApproved(true);
         }
@@ -166,15 +189,19 @@ public class AdminController {
             user.setSpecialite(specialite);
             user.setExperience(req.getExperience() != null ? req.getExperience() : 0);
 
-            user.setEnabled(false);
-            user.setAdminApproved(false);
+            // Comme l'admin crée directement le compte, il est activé
+            user.setEnabled(true);
+            user.setAdminApproved(true);
         }
 
         User saved = userRepository.save(user);
 
-        emailService.sendCoachApprovedEmail(saved.getEmail(), saved.getPrenom() + " " + saved.getNom(), saved.getActivationToken());
+        emailService.sendUserCredentialsEmail(
+                saved.getEmail(),
+                saved.getPrenom() + " " + saved.getNom(),
+                tempPassword
+        );
 
         return saved;
     }
-
 }

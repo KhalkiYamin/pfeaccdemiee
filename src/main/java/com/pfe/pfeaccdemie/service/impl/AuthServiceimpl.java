@@ -39,6 +39,7 @@ public class AuthServiceimpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
 
+
     @Override
     public AuthResponse register(RegisterRequest request) {
 
@@ -57,13 +58,6 @@ public class AuthServiceimpl implements AuthService {
 
         boolean isCoach = role == Role.COACH;
         boolean isAdmin = role == Role.ADMIN;
-
-        AppSettings settings = appSettingsRepository.findAll()
-                .stream()
-                .findFirst()
-                .orElse(null);
-
-        boolean autoApproveCoach = settings != null && settings.isAutoApproveCoach();
 
         String activationToken = UUID.randomUUID().toString();
 
@@ -101,31 +95,20 @@ public class AuthServiceimpl implements AuthService {
                     .adminApproved(true)
                     .activationToken(null)
                     .build();
+        } else if (isCoach) {
+            user = userBuilder
+                    .enabled(false)
+                    .emailVerified(false)
+                    .adminApproved(false)
+                    .activationToken(null)
+                    .build();
         } else {
-            if (isCoach) {
-                if (autoApproveCoach) {
-                    user = userBuilder
-                            .enabled(false)
-                            .emailVerified(false)
-                            .adminApproved(true)
-                            .activationToken(activationToken)
-                            .build();
-                } else {
-                    user = userBuilder
-                            .enabled(false)
-                            .emailVerified(false)
-                            .adminApproved(false)
-                            .activationToken(null)
-                            .build();
-                }
-            } else {
-                user = userBuilder
-                        .enabled(false)
-                        .emailVerified(false)
-                        .adminApproved(true)
-                        .activationToken(activationToken)
-                        .build();
-            }
+            user = userBuilder
+                    .enabled(false)
+                    .emailVerified(false)
+                    .adminApproved(true)
+                    .activationToken(activationToken)
+                    .build();
         }
 
         userRepository.save(user);
@@ -133,26 +116,13 @@ public class AuthServiceimpl implements AuthService {
         String fullName = user.getPrenom() + " " + user.getNom();
 
         if (isCoach) {
-            if (autoApproveCoach) {
-                emailService.sendActivationEmail(user.getEmail(), fullName, activationToken);
-
-                return AuthResponse.builder()
-                        .token(null)
-                        .email(user.getEmail())
-                        .nom(user.getNom())
-                        .prenom(user.getPrenom())
-                        .role(user.getRole())
-                        .message("Compte coach créé. Veuillez vérifier votre email pour activer votre compte.")
-                        .build();
-            }
-
             return AuthResponse.builder()
                     .token(null)
                     .email(user.getEmail())
                     .nom(user.getNom())
                     .prenom(user.getPrenom())
                     .role(user.getRole())
-                    .message("Compte coach créé. En attente de validation par l'admin. Vous recevrez un email après approbation.")
+                    .message("Compte coach créé. En attente de validation par l'administrateur. Vous recevrez un email de vérification après approbation.")
                     .build();
         }
 
@@ -218,7 +188,10 @@ public class AuthServiceimpl implements AuthService {
 
         String activationToken = UUID.randomUUID().toString();
         coach.setAdminApproved(true);
+        coach.setEnabled(true);
+        coach.setEmailVerified(false);
         coach.setActivationToken(activationToken);
+
         userRepository.save(coach);
 
         String fullName = coach.getPrenom() + " " + coach.getNom();
