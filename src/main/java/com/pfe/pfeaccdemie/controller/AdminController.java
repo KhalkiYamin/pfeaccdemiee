@@ -1,7 +1,13 @@
 package com.pfe.pfeaccdemie.controller;
 
 import java.util.List;
+import java.util.UUID;
 
+import com.pfe.pfeaccdemie.dto.UserCreateRequest;
+import com.pfe.pfeaccdemie.entities.Category;
+import com.pfe.pfeaccdemie.repositories.CategoryRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import com.pfe.pfeaccdemie.dto.DashboardStatsDto;
@@ -12,6 +18,7 @@ import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -22,6 +29,9 @@ public class AdminController {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final RessourceSportifRepository ressourceSportifRepository;
+
+    private final CategoryRepository categoryRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/users")
     public List<User> getAllUsers() {
@@ -92,6 +102,79 @@ public class AdminController {
                 .pendingCoaches(pendingCoaches)
                 .totalResources(totalResources)
                 .build();
+    }
+
+    @PostMapping("/users")
+    public User addUser(@RequestBody UserCreateRequest req) {
+        if (req.getEmail() == null || req.getEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email obligatoire");
+        }
+        if (req.getNom() == null || req.getNom().isBlank()
+                || req.getPrenom() == null || req.getPrenom().isBlank()
+                || req.getRole() == null || req.getRole().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Champs obligatoires manquants");
+        }
+
+        if (userRepository.findByEmail(req.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email déjà utilisé");
+        }
+
+        Role role;
+        try {
+            role = Role.valueOf(req.getRole().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rôle invalide");
+        }
+
+        User user = new User();
+        user.setNom(req.getNom());
+        user.setPrenom(req.getPrenom());
+        user.setEmail(req.getEmail());
+        user.setTelephone(req.getTelephone());
+        user.setRole(role);
+
+        // Mot de passe temporaire (obligatoire car password nullable=false)
+        String tempPassword = UUID.randomUUID().toString().substring(0, 10);
+        user.setPassword(passwordEncoder.encode(tempPassword));
+
+        user.setEmailVerified(false);
+        user.setActivationToken(UUID.randomUUID().toString());
+
+        if (role == Role.ATHLETE) {
+            if (req.getSportId() == null || req.getNiveau() == null || req.getNiveau().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sport et niveau obligatoires pour athlète");
+            }
+
+            Category sport = categoryRepository.findById(req.getSportId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sport introuvable"));
+
+            user.setSport(sport);
+            user.setNiveau(req.getNiveau());
+
+            user.setEnabled(true);
+            user.setAdminApproved(true);
+        }
+
+        if (role == Role.COACH) {
+            if (req.getSpecialiteId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Spécialité obligatoire pour coach");
+            }
+
+            Category specialite = categoryRepository.findById(req.getSpecialiteId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Spécialité introuvable"));
+
+            user.setSpecialite(specialite);
+            user.setExperience(req.getExperience() != null ? req.getExperience() : 0);
+
+            user.setEnabled(false);
+            user.setAdminApproved(false);
+        }
+
+        User saved = userRepository.save(user);
+
+        emailService.sendCoachApprovedEmail(saved.getEmail(), saved.getPrenom() + " " + saved.getNom(), saved.getActivationToken());
+
+        return saved;
     }
 
 }
