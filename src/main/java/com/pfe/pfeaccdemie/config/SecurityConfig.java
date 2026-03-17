@@ -65,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/ressources-sportives/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/coach/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

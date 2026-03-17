@@ -6,29 +6,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public class AdminUserDto {
-
+public class CoachProfileDto {
     private Long id;
-
     private String nom;
     private String prenom;
     private String email;
     private String telephone;
-
-    private String role;
-
+    private String imageProfil;
     private String specialite;
-    private Long specialiteId;
-
-    private String sport;
-    private Long sportId;
-
-    private String niveau;
     private Integer experience;
-
-    private String statut;
-    private Boolean enabled;
+    private Long totalAthletes;
+    private String note;
+    private String forme;
+    private Integer seances;
+    private String succes;
 }

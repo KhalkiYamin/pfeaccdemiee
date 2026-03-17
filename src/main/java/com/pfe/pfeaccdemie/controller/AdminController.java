@@ -19,7 +19,8 @@ import com.pfe.pfeaccdemie.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.server.ResponseStatusException;
-
+import com.pfe.pfeaccdemie.dto.AdminUserDto;
+import org.springframework.http.ResponseEntity;
 @RestController
 @RequestMapping("/api/admin")
 @CrossOrigin(origins = "http://localhost:4200")
@@ -50,9 +51,8 @@ public class AdminController {
 
     @GetMapping("/coaches/pending")
     public List<User> getPendingCoaches() {
-        return userRepository.findByRoleAndEnabled(Role.COACH, false);
+        return userRepository.findByRoleAndEnabledAndAdminApproved(Role.COACH, false, false);
     }
-
     @PutMapping("/coaches/{id}/approve")
     public String approveCoach(@PathVariable Long id) {
         User coach = userRepository.findById(id)
@@ -75,31 +75,7 @@ public class AdminController {
 
         return "Coach approuvé et email envoyé";
     }
-    @GetMapping("/coaches/rejected")
-    public List<User> getRejectedCoaches() {
-        return userRepository.findByRoleAndEnabled(Role.COACH, false)
-                .stream()
-                .filter(coach -> !coach.isAdminApproved())
-                .toList();
-    }
-    @PutMapping("/coaches/{id}/reject")
-    public String rejectCoach(@PathVariable Long id) {
-        User coach = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
 
-        if (coach.getRole() != Role.COACH) {
-            throw new RuntimeException("Cet utilisateur n'est pas un coach");
-        }
-
-        coach.setEnabled(false);
-        coach.setAdminApproved(false);
-        coach.setEmailVerified(false);
-        coach.setActivationToken(null);
-
-        userRepository.save(coach);
-
-        return "Coach refusé";
-    }
 
     @DeleteMapping("/users/{id}")
     public String deleteUser(@PathVariable Long id) {
@@ -203,5 +179,79 @@ public class AdminController {
         );
 
         return saved;
+    }
+
+    @GetMapping("/coaches/approved")
+    public List<User> getApprovedCoaches() {
+        return userRepository.findByRoleAndEnabledAndAdminApproved(Role.COACH, true, true);
+    }
+
+    @GetMapping("/coaches/rejected")
+    public List<User> getRejectedCoaches() {
+        return userRepository.findByRoleAndEnabledAndAdminApproved(Role.COACH, false, true);
+    }
+
+    @PutMapping("/coaches/{id}/reject")
+    public String rejectCoach(@PathVariable Long id) {
+        User coach = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
+
+        coach.setEnabled(false);
+        coach.setAdminApproved(true);
+        userRepository.save(coach);
+
+        return "Coach refusé";
+    }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody AdminUserDto dto) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+
+        if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
+            var existingUser = userRepository.findByEmail(dto.getEmail());
+            if (existingUser.isPresent() && !existingUser.get().getId().equals(id)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email déjà utilisé");
+            }
+        }
+
+        user.setNom(dto.getNom());
+        user.setPrenom(dto.getPrenom());
+        user.setEmail(dto.getEmail());
+        user.setTelephone(dto.getTelephone());
+
+        if (dto.getRole() != null && !dto.getRole().isBlank()) {
+            try {
+                user.setRole(Role.valueOf(dto.getRole().toUpperCase()));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rôle invalide");
+            }
+        }
+
+        if (user.getRole() == Role.ATHLETE) {
+            if (dto.getSportId() != null) {
+                Category sport = categoryRepository.findById(dto.getSportId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sport introuvable"));
+                user.setSport(sport);
+            }
+
+            if (dto.getNiveau() != null && !dto.getNiveau().isBlank()) {
+                user.setNiveau(dto.getNiveau());
+            }
+        }
+
+        if (user.getRole() == Role.COACH) {
+            if (dto.getSpecialiteId() != null) {
+                Category specialite = categoryRepository.findById(dto.getSpecialiteId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Spécialité introuvable"));
+                user.setSpecialite(specialite);
+            }
+
+            user.setExperience(dto.getExperience() != null ? dto.getExperience() : 0);
+        }
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Utilisateur modifié avec succès");
     }
 }
