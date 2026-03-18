@@ -66,6 +66,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/coach/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/api/seances/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
