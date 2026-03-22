@@ -84,9 +84,15 @@ public class SeanceController {
         dto.setCoachId(coach.getId());
         return seanceService.updateSeance(id, dto);
     }
+    @PutMapping("/{seanceId}/assign-athlete/{athleteId}")
+    public String assignAthleteToSeance(@PathVariable Long seanceId,
+                                        @PathVariable Long athleteId) {
+        return seanceService.assignAthleteToSeance(seanceId, athleteId);
+    }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         seanceService.deleteSeance(id);
     }
+
 }

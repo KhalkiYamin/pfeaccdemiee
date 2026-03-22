@@ -1,9 +1,9 @@
 package com.pfe.pfeaccdemie.service;
-
 import com.pfe.pfeaccdemie.dto.SeanceDto;
 
 import java.time.LocalDate;
 import java.util.List;
+
 
 public interface SeanceService {
 
@@ -20,4 +20,5 @@ public interface SeanceService {
     List<SeanceDto> getSeancesByCoach(Long coachId);
 
     List<SeanceDto> filterSeances(Long coachId, String statut, String groupe, LocalDate dateSeance);
+    String assignAthleteToSeance(Long seanceId, Long athleteId);
 }

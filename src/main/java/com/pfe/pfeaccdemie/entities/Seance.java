@@ -5,7 +5,7 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-
+import java.util.List;
 @Entity
 @Table(name = "seances")
 @Getter
@@ -44,4 +44,13 @@ public class Seance {
     @ManyToOne
     @JoinColumn(name = "coach_id")
     private User coach;
+
+
+    @ManyToMany
+    @JoinTable(
+            name = "seance_athletes",
+            joinColumns = @JoinColumn(name = "seance_id"),
+            inverseJoinColumns = @JoinColumn(name = "athlete_id")
+    )
+    private List<User> athletes;
 }

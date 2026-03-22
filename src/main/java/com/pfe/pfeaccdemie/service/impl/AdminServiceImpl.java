@@ -1,5 +1,7 @@
 package com.pfe.pfeaccdemie.service.impl;
-
+import org.springframework.transaction.annotation.Transactional;
+import com.pfe.pfeaccdemie.entities.Seance;
+import com.pfe.pfeaccdemie.repositories.SeanceRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,13 +16,15 @@ import com.pfe.pfeaccdemie.service.AdminService;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-
+import org.springframework.transaction.annotation.Transactional;
+import com.pfe.pfeaccdemie.entities.Seance;
+import com.pfe.pfeaccdemie.repositories.SeanceRepository;
 @Service
 @RequiredArgsConstructor
 public class AdminServiceImpl implements AdminService {
 
     private final UserRepository userRepository;
-
+    private final SeanceRepository seanceRepository;
     @Override
     public List<AdminUserDto> getAllUsers() {
         return userRepository.findAll()
@@ -69,9 +73,17 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
+
+        List<Seance> seances = seanceRepository.findByAthletes_Id(id);
+
+        for (Seance seance : seances) {
+            seance.getAthletes().removeIf(athlete -> athlete.getId().equals(id));
+            seanceRepository.save(seance);
+        }
 
         userRepository.delete(user);
     }

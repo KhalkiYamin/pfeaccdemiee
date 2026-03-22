@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface SeanceRepository extends JpaRepository<Seance, Long> {
 
+
     List<Seance> findByCoachId(Long coachId);
 
     List<Seance> findByCoachIdAndStatut(Long coachId, String statut);
@@ -17,4 +18,6 @@ public interface SeanceRepository extends JpaRepository<Seance, Long> {
     List<Seance> findByCoachIdAndDateSeance(Long coachId, LocalDate dateSeance);
 
     List<Seance> findByCoachIdAndStatutAndGroupe(Long coachId, String statut, String groupe);
+    List<Seance> findByAthletes_Email(String email);
+    List<Seance> findByAthletes_Id(Long athleteId);
 }
