@@ -64,7 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/settings/**").permitAll()
                         .requestMatchers("/api/ressources-sportives/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
-                        .requestMatchers("/api/coach/**").permitAll()
+                        .requestMatchers("/api/coach/**").hasAuthority("COACH")
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/seances/**").authenticated()
                         .requestMatchers("/api/athlete/**").hasAuthority("ATHLETE")
