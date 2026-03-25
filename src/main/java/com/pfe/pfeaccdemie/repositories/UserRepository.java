@@ -1,7 +1,9 @@
 
 
 package com.pfe.pfeaccdemie.repositories;
-
+import com.pfe.pfeaccdemie.entities.Category;
+import com.pfe.pfeaccdemie.entities.Role;
+import com.pfe.pfeaccdemie.entities.User;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,4 +42,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleAndSport_IdAndEnabledAndAdminApproved(Role role, Long sportId, boolean enabled, boolean adminApproved);
 
     List<User> findByRoleAndSpecialite_IdAndEnabledAndAdminApproved(Role role, Long specialiteId, boolean enabled, boolean adminApproved);
+    List<User> findByRoleAndSportAndNiveau(Role role, Category sport, String niveau);
 }

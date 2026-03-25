@@ -8,16 +8,19 @@ import java.util.List;
 
 public interface SeanceRepository extends JpaRepository<Seance, Long> {
 
-
     List<Seance> findByCoachId(Long coachId);
 
     List<Seance> findByCoachIdAndStatut(Long coachId, String statut);
 
-    List<Seance> findByCoachIdAndGroupe(Long coachId, String groupe);
-
     List<Seance> findByCoachIdAndDateSeance(Long coachId, LocalDate dateSeance);
 
-    List<Seance> findByCoachIdAndStatutAndGroupe(Long coachId, String statut, String groupe);
-    List<Seance> findByAthletes_Email(String email);
-    List<Seance> findByAthletes_Id(Long athleteId);
+    List<Seance> findByCoachIdAndSportId(Long coachId, Long sportId);
+
+    List<Seance> findByCoachIdAndStatutAndSportId(Long coachId, String statut, Long sportId);
+
+    List<Seance> findBySportId(Long sportId);
+
+    List<Seance> findBySportIdAndNiveau(Long sportId, String niveau);
+
+    List<Seance> findBySportIdAndDateSeance(Long sportId, LocalDate dateSeance);
 }

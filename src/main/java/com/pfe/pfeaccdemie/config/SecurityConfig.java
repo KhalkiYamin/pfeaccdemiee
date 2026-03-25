@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -52,7 +53,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            DaoAuthenticationProvider authenticationProvider) {
+            DaoAuthenticationProvider authenticationProvider) throws Exception {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -63,11 +64,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/categories/**").permitAll()
                         .requestMatchers("/api/settings/**").permitAll()
                         .requestMatchers("/api/ressources-sportives/**").permitAll()
-                        .requestMatchers("/api/admin/**").permitAll()
-                        .requestMatchers("/api/coach/**").hasAuthority("COACH")
                         .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers("/api/seances/**").authenticated()
+
+                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/coach/**").hasAuthority("COACH")
                         .requestMatchers("/api/athlete/**").hasAuthority("ATHLETE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/athlete/**").hasAuthority("ATHLETE")
+                        .requestMatchers(HttpMethod.POST, "/api/reservations/seance/**").hasAuthority("ATHLETE")
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/seance/**").hasAuthority("COACH")
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/**").hasAuthority("COACH")
+
+                        .requestMatchers("/api/presences/**").hasAuthority("COACH")
+
+                        .requestMatchers("/api/seances/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
@@ -93,5 +104,4 @@ public class SecurityConfig {
 
         return source;
     }
-
 }

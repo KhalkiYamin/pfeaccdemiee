@@ -1,30 +1,32 @@
 package com.pfe.pfeaccdemie.service.impl;
-import org.springframework.transaction.annotation.Transactional;
-import com.pfe.pfeaccdemie.entities.Seance;
-import com.pfe.pfeaccdemie.repositories.SeanceRepository;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
 
 import com.pfe.pfeaccdemie.dto.AdminUserDto;
 import com.pfe.pfeaccdemie.dto.DashboardStatsDto;
 import com.pfe.pfeaccdemie.entities.Role;
+import com.pfe.pfeaccdemie.entities.Seance;
 import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.repositories.PresenceRepository;
+import com.pfe.pfeaccdemie.repositories.ReservationSeanceRepository;
+import com.pfe.pfeaccdemie.repositories.SeanceRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.AdminService;
-
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pfe.pfeaccdemie.entities.Seance;
-import com.pfe.pfeaccdemie.repositories.SeanceRepository;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class AdminServiceImpl implements AdminService {
 
     private final UserRepository userRepository;
     private final SeanceRepository seanceRepository;
+    private final ReservationSeanceRepository reservationSeanceRepository;
+    private final PresenceRepository presenceRepository;
+
     @Override
     public List<AdminUserDto> getAllUsers() {
         return userRepository.findAll()
@@ -78,11 +80,19 @@ public class AdminServiceImpl implements AdminService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
 
-        List<Seance> seances = seanceRepository.findByAthletes_Id(id);
+        if (user.getRole() == Role.ATHLETE) {
+            reservationSeanceRepository.deleteByAthleteId(id);
+            presenceRepository.deleteByAthleteId(id);
+        }
 
-        for (Seance seance : seances) {
-            seance.getAthletes().removeIf(athlete -> athlete.getId().equals(id));
-            seanceRepository.save(seance);
+        if (user.getRole() == Role.COACH) {
+            List<Seance> seancesCoach = seanceRepository.findByCoachId(id);
+
+            for (Seance seance : seancesCoach) {
+                presenceRepository.deleteBySeanceId(seance.getId());
+                reservationSeanceRepository.deleteBySeanceId(seance.getId());
+                seanceRepository.delete(seance);
+            }
         }
 
         userRepository.delete(user);
@@ -119,5 +129,4 @@ public class AdminServiceImpl implements AdminService {
                 .enabled(user.isEnabled())
                 .build();
     }
-
 }

@@ -1,12 +1,10 @@
 package com.pfe.pfeaccdemie.controller;
 
 import com.pfe.pfeaccdemie.dto.SeanceDto;
-import com.pfe.pfeaccdemie.entities.User;
-import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.SeanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -14,85 +12,50 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/seances")
-@CrossOrigin(origins = "http://localhost:4200")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:4200")
 public class SeanceController {
 
     private final SeanceService seanceService;
-    private final UserRepository userRepository;
 
     @PostMapping
-    public SeanceDto create(@RequestBody SeanceDto dto, Authentication authentication) {
-        if (authentication == null) {
-            throw new RuntimeException("Utilisateur non authentifié");
-        }
-
-        String email = authentication.getName();
-        User coach = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
-
-        dto.setCoachId(coach.getId());
-        return seanceService.createSeance(dto);
+    public ResponseEntity<SeanceDto> createSeance(@RequestBody SeanceDto dto) {
+        return ResponseEntity.ok(seanceService.createSeance(dto));
     }
 
-    @GetMapping("/my-seances")
-    public List<SeanceDto> getMySeances(Authentication authentication) {
-        if (authentication == null) {
-            throw new RuntimeException("Utilisateur non authentifié");
-        }
-
-        String email = authentication.getName();
-        User coach = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
-
-        return seanceService.getSeancesByCoach(coach.getId());
+    @GetMapping
+    public ResponseEntity<List<SeanceDto>> getAllSeances() {
+        return ResponseEntity.ok(seanceService.getAllSeances());
     }
 
-    @GetMapping("/my-seances/filter")
-    public List<SeanceDto> filterMySeances(
-            Authentication authentication,
+    @GetMapping("/{id}")
+    public ResponseEntity<SeanceDto> getSeanceById(@PathVariable Long id) {
+        return ResponseEntity.ok(seanceService.getSeanceById(id));
+    }
+
+    @GetMapping("/coach/{coachId}")
+    public ResponseEntity<List<SeanceDto>> getSeancesByCoach(@PathVariable Long coachId) {
+        return ResponseEntity.ok(seanceService.getSeancesByCoach(coachId));
+    }
+
+    @GetMapping("/coach/{coachId}/filter")
+    public ResponseEntity<List<SeanceDto>> filterSeances(
+            @PathVariable Long coachId,
             @RequestParam(required = false) String statut,
-            @RequestParam(required = false) String groupe,
+            @RequestParam(required = false) String niveau,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateSeance
     ) {
-        if (authentication == null) {
-            throw new RuntimeException("Utilisateur non authentifié");
-        }
-
-        String email = authentication.getName();
-        User coach = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
-
-        return seanceService.filterSeances(coach.getId(), statut, groupe, dateSeance);
-    }
-
-    @GetMapping("/details/{id}")
-    public SeanceDto getById(@PathVariable Long id) {
-        return seanceService.getSeanceById(id);
+        return ResponseEntity.ok(seanceService.filterSeances(coachId, statut, niveau, dateSeance));
     }
 
     @PutMapping("/{id}")
-    public SeanceDto update(@PathVariable Long id, @RequestBody SeanceDto dto, Authentication authentication) {
-        if (authentication == null) {
-            throw new RuntimeException("Utilisateur non authentifié");
-        }
-
-        String email = authentication.getName();
-        User coach = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
-
-        dto.setCoachId(coach.getId());
-        return seanceService.updateSeance(id, dto);
-    }
-    @PutMapping("/{seanceId}/assign-athlete/{athleteId}")
-    public String assignAthleteToSeance(@PathVariable Long seanceId,
-                                        @PathVariable Long athleteId) {
-        return seanceService.assignAthleteToSeance(seanceId, athleteId);
+    public ResponseEntity<SeanceDto> updateSeance(@PathVariable Long id, @RequestBody SeanceDto dto) {
+        return ResponseEntity.ok(seanceService.updateSeance(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
+    public ResponseEntity<String> deleteSeance(@PathVariable Long id) {
         seanceService.deleteSeance(id);
+        return ResponseEntity.ok("Séance supprimée avec succès");
     }
-
 }

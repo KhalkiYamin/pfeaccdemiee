@@ -1,8 +1,10 @@
 package com.pfe.pfeaccdemie.repositories;
-import org.springframework.data.jpa.repository.JpaRepository;
-import com.pfe.pfeaccdemie.entities.Category;
+
 import com.pfe.pfeaccdemie.entities.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 public interface CategoryRepository extends JpaRepository<Category, Long> {
+    Optional<Category> findByTitle(String title);
 }

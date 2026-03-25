@@ -9,23 +9,20 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SeanceDto {
+public class ReservationSeanceDto {
 
     private Long id;
+
+    private Long seanceId;
     private String theme;
-    private String description;
     private String dateSeance;
     private String heureSeance;
     private String lieu;
-    private Integer nombreAthletes;
+
+    private Long athleteId;
+    private String athleteNomComplet;
+    private String athleteEmail;
+
     private String statut;
-    private String duree;
-    private String objectif;
-
-    private Long coachId;
-    private String coachNom;
-
-    private Long sportId;
-    private String sportTitle;
-    private String niveau;
+    private String dateReservation;
 }
