@@ -2,12 +2,14 @@ package com.pfe.pfeaccdemie.service.impl;
 
 import com.pfe.pfeaccdemie.dto.SeanceDto;
 import com.pfe.pfeaccdemie.entities.Category;
+import com.pfe.pfeaccdemie.entities.RessourceSportif;
 import com.pfe.pfeaccdemie.entities.Seance;
 import com.pfe.pfeaccdemie.entities.StatutReservation;
 import com.pfe.pfeaccdemie.entities.User;
 import com.pfe.pfeaccdemie.repositories.CategoryRepository;
 import com.pfe.pfeaccdemie.repositories.PresenceRepository;
 import com.pfe.pfeaccdemie.repositories.ReservationSeanceRepository;
+import com.pfe.pfeaccdemie.repositories.RessourceSportifRepository;
 import com.pfe.pfeaccdemie.repositories.SeanceRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.SeanceService;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -28,6 +31,7 @@ public class SeanceServiceImpl implements SeanceService {
     private final CategoryRepository categoryRepository;
     private final PresenceRepository presenceRepository;
     private final ReservationSeanceRepository reservationSeanceRepository;
+    private final RessourceSportifRepository ressourceSportifRepository;
 
     @Override
     public SeanceDto createSeance(SeanceDto dto) {
@@ -41,6 +45,10 @@ public class SeanceServiceImpl implements SeanceService {
         Category sport = categoryRepository.findById(dto.getSportId())
                 .orElseThrow(() -> new RuntimeException("Sport introuvable"));
 
+        List<RessourceSportif> ressources = dto.getRessourceIds() == null || dto.getRessourceIds().isEmpty()
+                ? new ArrayList<>()
+                : ressourceSportifRepository.findAllById(dto.getRessourceIds());
+
         Seance seance = Seance.builder()
                 .theme(dto.getTheme())
                 .description(dto.getDescription())
@@ -53,6 +61,7 @@ public class SeanceServiceImpl implements SeanceService {
                 .coach(coach)
                 .sport(sport)
                 .niveau(dto.getNiveau())
+                .ressources(ressources)
                 .build();
 
         Seance saved = seanceRepository.save(seance);
@@ -164,6 +173,13 @@ public class SeanceServiceImpl implements SeanceService {
             seance.setNiveau(dto.getNiveau());
         }
 
+        if (dto.getRessourceIds() != null) {
+            List<RessourceSportif> ressources = dto.getRessourceIds().isEmpty()
+                    ? new ArrayList<>()
+                    : ressourceSportifRepository.findAllById(dto.getRessourceIds());
+            seance.setRessources(ressources);
+        }
+
         Seance updated = seanceRepository.save(seance);
         return mapToDto(updated);
     }
@@ -197,6 +213,17 @@ public class SeanceServiceImpl implements SeanceService {
                 StatutReservation.ACCEPTEE
         );
 
+        String groupe = null;
+        if (seance.getSport() != null && seance.getNiveau() != null && !seance.getNiveau().isBlank()) {
+            groupe = seance.getSport().getTitle() + " - " + seance.getNiveau();
+        }
+
+        List<Long> ressourceIds = seance.getRessources() == null
+                ? List.of()
+                : seance.getRessources().stream()
+                .map(RessourceSportif::getId)
+                .toList();
+
         return SeanceDto.builder()
                 .id(seance.getId())
                 .theme(seance.getTheme())
@@ -213,22 +240,16 @@ public class SeanceServiceImpl implements SeanceService {
                 .sportId(seance.getSport() != null ? seance.getSport().getId() : null)
                 .sportTitle(seance.getSport() != null ? seance.getSport().getTitle() : null)
                 .niveau(seance.getNiveau())
+                .groupe(groupe)
+                .ressourceIds(ressourceIds)
                 .build();
     }
 
     private LocalDate parseDate(String date) {
-        try {
-            return LocalDate.parse(date);
-        } catch (Exception e) {
-            throw new RuntimeException("Format date invalide. Utilisez yyyy-MM-dd");
-        }
+        return (date == null || date.isBlank()) ? null : LocalDate.parse(date);
     }
 
     private LocalTime parseTime(String time) {
-        try {
-            return LocalTime.parse(time);
-        } catch (Exception e) {
-            throw new RuntimeException("Format heure invalide. Utilisez HH:mm");
-        }
+        return (time == null || time.isBlank()) ? null : LocalTime.parse(time);
     }
 }

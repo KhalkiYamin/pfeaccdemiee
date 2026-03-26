@@ -5,6 +5,8 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "seances")
@@ -46,4 +48,13 @@ public class Seance {
     private Category sport;
 
     private String niveau;
+
+    @ManyToMany
+    @JoinTable(
+            name = "seance_ressources",
+            joinColumns = @JoinColumn(name = "seance_id"),
+            inverseJoinColumns = @JoinColumn(name = "ressource_id")
+    )
+    @Builder.Default
+    private List<RessourceSportif> ressources = new ArrayList<>();
 }

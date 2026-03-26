@@ -13,14 +13,16 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.pfe.pfeaccdemie.dto.CoachAthleteDto;
 import com.pfe.pfeaccdemie.dto.CoachProfileDto;
+import com.pfe.pfeaccdemie.dto.EvaluationDto;
+import com.pfe.pfeaccdemie.dto.PresenceDto;
+import com.pfe.pfeaccdemie.dto.UpdateCoachProfileDto;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.User;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.CoachDashboardService;
-import com.pfe.pfeaccdemie.dto.UpdateCoachProfileDto;
+
 import lombok.RequiredArgsConstructor;
-import com.pfe.pfeaccdemie.dto.EvaluationDto;
-import com.pfe.pfeaccdemie.dto.PresenceDto;
+
 @Service
 @RequiredArgsConstructor
 public class CoachDashboardServiceImpl implements CoachDashboardService {
@@ -72,25 +74,16 @@ public class CoachDashboardServiceImpl implements CoachDashboardService {
     }
 
     private List<User> getAthletesForCoach(User coach) {
-        if (coach.getSport() != null) {
-            return userRepository.findByRoleAndSport_IdAndEnabledAndAdminApproved(
-                    Role.ATHLETE,
-                    coach.getSport().getId(),
-                    true,
-                    true
-            );
+        if (coach.getSpecialite() == null) {
+            return List.of();
         }
 
-        if (coach.getSpecialite() != null) {
-            return userRepository.findByRoleAndSpecialite_IdAndEnabledAndAdminApproved(
-                    Role.ATHLETE,
-                    coach.getSpecialite().getId(),
-                    true,
-                    true
-            );
-        }
-
-        return List.of();
+        return userRepository.findByRoleAndSport_IdAndEnabledAndAdminApproved(
+                Role.ATHLETE,
+                coach.getSpecialite().getId(),
+                true,
+                true
+        );
     }
 
     private String buildFullName(User user) {
@@ -127,6 +120,7 @@ public class CoachDashboardServiceImpl implements CoachDashboardService {
                 .nom(coach.getNom())
                 .prenom(coach.getPrenom())
                 .email(coach.getEmail())
+                .telephone(coach.getTelephone())
                 .imageProfil(coach.getImageProfil())
                 .specialite(coach.getSpecialite() != null ? coach.getSpecialite().getTitle() : null)
                 .experience(coach.getExperience())
@@ -137,6 +131,7 @@ public class CoachDashboardServiceImpl implements CoachDashboardService {
                 .succes("91%")
                 .build();
     }
+
     @Override
     public CoachProfileDto updateCoachProfile(String currentEmail, UpdateCoachProfileDto dto) {
         User coach = userRepository.findByEmail(currentEmail)
@@ -182,6 +177,7 @@ public class CoachDashboardServiceImpl implements CoachDashboardService {
                 .succes("91%")
                 .build();
     }
+
     @Override
     public List<EvaluationDto> getMyEvaluations(String email) {
         User coach = userRepository.findByEmail(email)
@@ -199,7 +195,6 @@ public class CoachDashboardServiceImpl implements CoachDashboardService {
                         .build())
                 .toList();
     }
-
 
     @Override
     public List<PresenceDto> getMyPresences(String email) {

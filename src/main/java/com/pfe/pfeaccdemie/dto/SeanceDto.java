@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,4 +30,8 @@ public class SeanceDto {
     private Long sportId;
     private String sportTitle;
     private String niveau;
+
+    private String groupe;
+
+    private List<Long> ressourceIds;
 }
