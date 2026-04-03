@@ -2,6 +2,7 @@ package com.pfe.pfeaccdemie.service.impl;
 
 import com.pfe.pfeaccdemie.dto.SeanceDto;
 import com.pfe.pfeaccdemie.entities.Category;
+import com.pfe.pfeaccdemie.entities.ReservationSeance;
 import com.pfe.pfeaccdemie.entities.RessourceSportif;
 import com.pfe.pfeaccdemie.entities.Seance;
 import com.pfe.pfeaccdemie.entities.StatutReservation;
@@ -12,12 +13,14 @@ import com.pfe.pfeaccdemie.repositories.ReservationSeanceRepository;
 import com.pfe.pfeaccdemie.repositories.RessourceSportifRepository;
 import com.pfe.pfeaccdemie.repositories.SeanceRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
+import com.pfe.pfeaccdemie.service.EmailService;
 import com.pfe.pfeaccdemie.service.SeanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +35,7 @@ public class SeanceServiceImpl implements SeanceService {
     private final PresenceRepository presenceRepository;
     private final ReservationSeanceRepository reservationSeanceRepository;
     private final RessourceSportifRepository ressourceSportifRepository;
+    private final EmailService emailService;
 
     @Override
     public SeanceDto createSeance(SeanceDto dto) {
@@ -190,6 +194,98 @@ public class SeanceServiceImpl implements SeanceService {
     }
 
     @Override
+    public SeanceDto annulerSeance(Long seanceId) {
+        Seance seance = seanceRepository.findById(seanceId)
+                .orElseThrow(() -> new RuntimeException("Séance introuvable"));
+
+        if ("ANNULEE".equalsIgnoreCase(seance.getStatut())) {
+            throw new RuntimeException("Cette séance est déjà annulée");
+        }
+
+        if (seance.getDateSeance() == null || seance.getHeureSeance() == null) {
+            throw new RuntimeException("Date ou heure de séance non définie");
+        }
+
+        LocalDateTime dateHeureSeance = LocalDateTime.of(
+                seance.getDateSeance(),
+                seance.getHeureSeance()
+        );
+
+        boolean moinsDe24h = LocalDateTime.now().isAfter(dateHeureSeance.minusHours(24));
+
+        seance.setStatut("ANNULEE");
+        Seance saved = seanceRepository.save(seance);
+
+        List<ReservationSeance> reservations = reservationSeanceRepository.findBySeanceId(seanceId);
+
+        for (ReservationSeance r : reservations) {
+            if (r.getAthlete() != null && r.getAthlete().getEmail() != null && !r.getAthlete().getEmail().isBlank()) {
+
+                String athleteFullName = ((r.getAthlete().getPrenom() != null ? r.getAthlete().getPrenom() : "") + " " +
+                        (r.getAthlete().getNom() != null ? r.getAthlete().getNom() : "")).trim();
+
+                String msg = moinsDe24h
+                        ? "⚠️ Cette séance a été annulée moins de 24h avant."
+                        : "Cette séance a été annulée.";
+
+                String content = """
+                    <div style='font-family: Arial, sans-serif; padding: 24px; color: #1f2937; background: #f9fafb;'>
+                        <div style='max-width: 620px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb;'>
+                            <div style='background: linear-gradient(135deg, #dc2626, #ef4444); padding: 24px; color: white;'>
+                                <h1 style='margin: 0; font-size: 24px;'>Académie Sportive</h1>
+                                <p style='margin: 8px 0 0; font-size: 14px; opacity: 0.95;'>Séance annulée</p>
+                            </div>
+
+                            <div style='padding: 28px;'>
+                                <h2 style='margin-top: 0; color: #111827;'>Bonjour %s,</h2>
+
+                                <p style='font-size: 15px; line-height: 1.7; color: #374151;'>
+                                    %s
+                                </p>
+
+                                <div style='background: #fef2f2; border-radius: 12px; padding: 18px; margin: 22px 0; border: 1px solid #fecaca;'>
+                                    <p style='margin: 8px 0;'><strong>Thème :</strong> %s</p>
+                                    <p style='margin: 8px 0;'><strong>Date :</strong> %s</p>
+                                    <p style='margin: 8px 0;'><strong>Heure :</strong> %s</p>
+                                    <p style='margin: 8px 0;'><strong>Lieu :</strong> %s</p>
+                                </div>
+
+                                <p style='font-size: 15px; line-height: 1.7; color: #374151;'>
+                                    Merci de consulter votre tableau de bord pour voir les autres séances disponibles.
+                                </p>
+
+                                <p style='margin-top: 28px; color: #6b7280; font-size: 14px;'>
+                                    Cordialement,<br>
+                                    <strong>L'équipe Académie Sportive</strong>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    """.formatted(
+                        athleteFullName.isBlank() ? "Athlète" : athleteFullName,
+                        msg,
+                        saved.getTheme() != null ? saved.getTheme() : "-",
+                        saved.getDateSeance() != null ? saved.getDateSeance().toString() : "-",
+                        saved.getHeureSeance() != null ? saved.getHeureSeance().toString() : "-",
+                        saved.getLieu() != null ? saved.getLieu() : "-"
+                );
+
+                emailService.sendEmail(r.getAthlete().getEmail(), "Séance annulée", content);
+            }
+        }
+
+        SeanceDto dto = mapToDto(saved);
+        dto.setAnnuleeMoinsDe24h(moinsDe24h);
+        dto.setMessageAnnulation(
+                moinsDe24h
+                        ? "Annulée moins de 24h"
+                        : "Cette séance a été annulée"
+        );
+
+        return dto;
+    }
+
+    @Override
     @Transactional
     public void deleteSeance(Long seanceId) {
         Seance seance = seanceRepository.findById(seanceId)
@@ -224,6 +320,25 @@ public class SeanceServiceImpl implements SeanceService {
                 .map(RessourceSportif::getId)
                 .toList();
 
+        Boolean annuleeMoinsDe24h = false;
+        String messageAnnulation = null;
+
+        if ("ANNULEE".equalsIgnoreCase(seance.getStatut())
+                && seance.getDateSeance() != null
+                && seance.getHeureSeance() != null) {
+
+            LocalDateTime dateHeureSeance = LocalDateTime.of(
+                    seance.getDateSeance(),
+                    seance.getHeureSeance()
+            );
+
+            annuleeMoinsDe24h = LocalDateTime.now().isAfter(dateHeureSeance.minusHours(24));
+
+            messageAnnulation = annuleeMoinsDe24h
+                    ? "Annulée moins de 24h"
+                    : "Cette séance a été annulée";
+        }
+
         return SeanceDto.builder()
                 .id(seance.getId())
                 .theme(seance.getTheme())
@@ -242,6 +357,8 @@ public class SeanceServiceImpl implements SeanceService {
                 .niveau(seance.getNiveau())
                 .groupe(groupe)
                 .ressourceIds(ressourceIds)
+                .annuleeMoinsDe24h(annuleeMoinsDe24h)
+                .messageAnnulation(messageAnnulation)
                 .build();
     }
 

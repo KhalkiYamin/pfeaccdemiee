@@ -18,16 +18,32 @@ public class ReservationSeance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seance_id", nullable = false)
     private Seance seance;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "athlete_id", nullable = false)
     private User athlete;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coach_id", nullable = false)
+    private User coach;
+
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private StatutReservation statut;
 
+    @Column(nullable = false)
     private LocalDateTime dateReservation;
+
+    @PrePersist
+    public void prePersist() {
+        if (dateReservation == null) {
+            dateReservation = LocalDateTime.now();
+        }
+        if (statut == null) {
+            statut = StatutReservation.EN_ATTENTE;
+        }
+    }
 }

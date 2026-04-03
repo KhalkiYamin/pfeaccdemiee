@@ -23,6 +23,22 @@ public class ReservationSeanceDto {
     private String athleteNomComplet;
     private String athleteEmail;
 
+    private Long coachId;
+    private String coachNomComplet;
+
+    // statut réservation
     private String statut;
+
+    // statut séance
+    private String seanceStatut;
+
     private String dateReservation;
+
+    private Long nombreAthletesCoachEtSeance;
+    private Boolean complet;
+
+    // annulation
+    private Boolean annuleeMoinsDe24h;
+    private String messageAnnulation;
+
 }

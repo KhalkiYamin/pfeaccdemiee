@@ -27,10 +27,11 @@ public class ReservationSeanceController {
     @PostMapping("/seance/{seanceId}")
     public ResponseEntity<ReservationSeanceDto> reserverSeance(
             @PathVariable Long seanceId,
+            @RequestParam Long coachId,
             Authentication authentication
     ) {
         return ResponseEntity.ok(
-                reservationSeanceService.reserverSeance(seanceId, authentication.getName())
+                reservationSeanceService.reserverSeance(seanceId, coachId, authentication.getName())
         );
     }
 
@@ -38,6 +39,36 @@ public class ReservationSeanceController {
     public ResponseEntity<List<ReservationSeanceDto>> getReservationsBySeance(@PathVariable Long seanceId) {
         return ResponseEntity.ok(
                 reservationSeanceService.getReservationsBySeance(seanceId)
+        );
+    }
+
+    @GetMapping("/seance/{seanceId}/coach/{coachId}")
+    public ResponseEntity<List<ReservationSeanceDto>> getReservationsByCoachAndSeance(
+            @PathVariable Long seanceId,
+            @PathVariable Long coachId
+    ) {
+        return ResponseEntity.ok(
+                reservationSeanceService.getReservationsByCoachAndSeance(coachId, seanceId)
+        );
+    }
+
+    @GetMapping("/seance/{seanceId}/coach/{coachId}/count")
+    public ResponseEntity<Long> countReservationsByCoachAndSeance(
+            @PathVariable Long seanceId,
+            @PathVariable Long coachId
+    ) {
+        return ResponseEntity.ok(
+                reservationSeanceService.countReservationsByCoachAndSeance(coachId, seanceId)
+        );
+    }
+
+    @GetMapping("/seance/{seanceId}/coach/{coachId}/complete")
+    public ResponseEntity<Boolean> isSeanceCompleteForCoach(
+            @PathVariable Long seanceId,
+            @PathVariable Long coachId
+    ) {
+        return ResponseEntity.ok(
+                reservationSeanceService.isSeanceCompleteForCoach(coachId, seanceId)
         );
     }
 

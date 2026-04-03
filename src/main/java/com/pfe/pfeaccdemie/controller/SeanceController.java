@@ -53,6 +53,11 @@ public class SeanceController {
         return ResponseEntity.ok(seanceService.updateSeance(id, dto));
     }
 
+    @PutMapping("/{seanceId}/annuler")
+    public ResponseEntity<SeanceDto> annulerSeance(@PathVariable Long seanceId) {
+        return ResponseEntity.ok(seanceService.annulerSeance(seanceId));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteSeance(@PathVariable Long id) {
         seanceService.deleteSeance(id);

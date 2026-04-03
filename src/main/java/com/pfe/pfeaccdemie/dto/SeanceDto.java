@@ -34,4 +34,8 @@ public class SeanceDto {
     private String groupe;
 
     private List<Long> ressourceIds;
+
+    // ✅ fields jded
+    private Boolean annuleeMoinsDe24h;
+    private String messageAnnulation;
 }

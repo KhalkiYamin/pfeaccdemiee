@@ -15,13 +15,27 @@ public interface ReservationSeanceRepository extends JpaRepository<ReservationSe
 
     List<ReservationSeance> findByAthleteEmail(String email);
 
+    List<ReservationSeance> findByCoachId(Long coachId);
+
+    List<ReservationSeance> findByCoachIdAndSeanceId(Long coachId, Long seanceId);
+
     List<ReservationSeance> findBySeanceIdAndStatut(Long seanceId, StatutReservation statut);
 
+    List<ReservationSeance> findByCoachIdAndSeanceIdAndStatut(Long coachId, Long seanceId, StatutReservation statut);
+
     Optional<ReservationSeance> findBySeanceIdAndAthleteId(Long seanceId, Long athleteId);
+
+    Optional<ReservationSeance> findBySeanceIdAndAthleteIdAndCoachId(Long seanceId, Long athleteId, Long coachId);
+
+    boolean existsByAthleteIdAndCoachIdAndSeanceId(Long athleteId, Long coachId, Long seanceId);
 
     long countBySeanceId(Long seanceId);
 
     long countBySeanceIdAndStatut(Long seanceId, StatutReservation statut);
+
+    long countByCoachIdAndSeanceId(Long coachId, Long seanceId);
+
+    long countByCoachIdAndSeanceIdAndStatut(Long coachId, Long seanceId, StatutReservation statut);
 
     void deleteBySeanceId(Long seanceId);
 

@@ -21,5 +21,7 @@ public interface SeanceService {
 
     String assignAthleteToSeance(Long seanceId, Long athleteId);
 
+    SeanceDto annulerSeance(Long seanceId);
+
     void deleteSeance(Long seanceId);
 }

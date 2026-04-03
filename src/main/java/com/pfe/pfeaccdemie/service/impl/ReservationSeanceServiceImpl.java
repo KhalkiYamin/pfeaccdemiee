@@ -21,6 +21,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ReservationSeanceServiceImpl implements ReservationSeanceService {
 
+    private static final int MAX_ATHLETES_PAR_COACH_ET_SEANCE = 20;
+
     private final ReservationSeanceRepository reservationSeanceRepository;
     private final SeanceRepository seanceRepository;
     private final UserRepository userRepository;
@@ -43,9 +45,17 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
 
         return seances.stream()
                 .map(seance -> {
-                    ReservationSeance existing = reservationSeanceRepository
-                            .findBySeanceIdAndAthleteId(seance.getId(), athlete.getId())
-                            .orElse(null);
+                    ReservationSeance existing = null;
+
+                    if (seance.getCoach() != null) {
+                        existing = reservationSeanceRepository
+                                .findBySeanceIdAndAthleteIdAndCoachId(
+                                        seance.getId(),
+                                        athlete.getId(),
+                                        seance.getCoach().getId()
+                                )
+                                .orElse(null);
+                    }
 
                     return mapToDtoForAthleteView(seance, athlete, existing);
                 })
@@ -53,7 +63,7 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
     }
 
     @Override
-    public ReservationSeanceDto reserverSeance(Long seanceId, String email) {
+    public ReservationSeanceDto reserverSeance(Long seanceId, Long coachId, String email) {
         User athlete = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Athlète introuvable"));
 
@@ -64,6 +74,17 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
         Seance seance = seanceRepository.findById(seanceId)
                 .orElseThrow(() -> new RuntimeException("Séance introuvable"));
 
+        if ("ANNULEE".equalsIgnoreCase(seance.getStatut())) {
+            throw new RuntimeException("Cette séance est annulée");
+        }
+
+        User coach = userRepository.findById(coachId)
+                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
+
+        if (coach.getRole() != Role.COACH) {
+            throw new RuntimeException("L'utilisateur sélectionné n'est pas un coach");
+        }
+
         if (athlete.getSport() == null || seance.getSport() == null) {
             throw new RuntimeException("Sport non défini pour l'athlète ou la séance");
         }
@@ -72,13 +93,24 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
             throw new RuntimeException("Cette séance ne correspond pas au sport de l'athlète");
         }
 
-        if (reservationSeanceRepository.findBySeanceIdAndAthleteId(seanceId, athlete.getId()).isPresent()) {
-            throw new RuntimeException("Vous avez déjà une réservation pour cette séance");
+        boolean dejaReserve = reservationSeanceRepository
+                .existsByAthleteIdAndCoachIdAndSeanceId(athlete.getId(), coachId, seanceId);
+
+        if (dejaReserve) {
+            throw new RuntimeException("Vous avez déjà une réservation pour cette séance avec ce coach");
+        }
+
+        long nombreReservations = reservationSeanceRepository
+                .countByCoachIdAndSeanceIdAndStatut(coachId, seanceId, StatutReservation.ACCEPTEE);
+
+        if (nombreReservations >= MAX_ATHLETES_PAR_COACH_ET_SEANCE) {
+            throw new RuntimeException("Cette séance est complète pour ce coach");
         }
 
         ReservationSeance reservation = ReservationSeance.builder()
                 .seance(seance)
                 .athlete(athlete)
+                .coach(coach)
                 .statut(StatutReservation.EN_ATTENTE)
                 .dateReservation(LocalDateTime.now())
                 .build();
@@ -100,14 +132,56 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
     }
 
     @Override
+    public List<ReservationSeanceDto> getReservationsByCoachAndSeance(Long coachId, Long seanceId) {
+        seanceRepository.findById(seanceId)
+                .orElseThrow(() -> new RuntimeException("Séance introuvable"));
+
+        userRepository.findById(coachId)
+                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
+
+        return reservationSeanceRepository.findByCoachIdAndSeanceId(coachId, seanceId)
+                .stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
+    @Override
+    public long countReservationsByCoachAndSeance(Long coachId, Long seanceId) {
+        return reservationSeanceRepository
+                .countByCoachIdAndSeanceIdAndStatut(coachId, seanceId, StatutReservation.ACCEPTEE);
+    }
+
+    @Override
+    public boolean isSeanceCompleteForCoach(Long coachId, Long seanceId) {
+        return reservationSeanceRepository
+                .countByCoachIdAndSeanceIdAndStatut(coachId, seanceId, StatutReservation.ACCEPTEE)
+                >= MAX_ATHLETES_PAR_COACH_ET_SEANCE;
+    }
+
+    @Override
     public ReservationSeanceDto accepterReservation(Long reservationId) {
         ReservationSeance reservation = reservationSeanceRepository.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
 
+        if ("ANNULEE".equalsIgnoreCase(reservation.getSeance().getStatut())) {
+            throw new RuntimeException("Impossible d'accepter: cette séance est annulée");
+        }
+
+        long nombreReservationsAcceptees = reservationSeanceRepository
+                .countByCoachIdAndSeanceIdAndStatut(
+                        reservation.getCoach().getId(),
+                        reservation.getSeance().getId(),
+                        StatutReservation.ACCEPTEE
+                );
+
+        if (nombreReservationsAcceptees >= MAX_ATHLETES_PAR_COACH_ET_SEANCE) {
+            throw new RuntimeException("Impossible d'accepter: cette séance est déjà complète pour ce coach");
+        }
+
         reservation.setStatut(StatutReservation.ACCEPTEE);
         ReservationSeance saved = reservationSeanceRepository.save(reservation);
 
-        sendSeanceEmail(saved.getSeance(), saved.getAthlete());
+        sendSeanceEmail(saved.getSeance(), saved.getAthlete(), saved.getCoach());
 
         return mapToDto(saved);
     }
@@ -120,7 +194,7 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
         reservation.setStatut(StatutReservation.REFUSEE);
         ReservationSeance saved = reservationSeanceRepository.save(reservation);
 
-        sendReservationRefusedEmail(saved.getSeance(), saved.getAthlete());
+        sendReservationRefusedEmail(saved.getSeance(), saved.getAthlete(), saved.getCoach());
 
         return mapToDto(saved);
     }
@@ -143,6 +217,7 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
     private ReservationSeanceDto mapToDto(ReservationSeance reservation) {
         Seance seance = reservation.getSeance();
         User athlete = reservation.getAthlete();
+        User coach = reservation.getCoach();
 
         String athleteNom = "";
         if (athlete != null) {
@@ -150,6 +225,23 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
             String prenom = athlete.getPrenom() != null ? athlete.getPrenom() : "";
             athleteNom = (nom + " " + prenom).trim();
         }
+
+        String coachNom = "";
+        if (coach != null) {
+            String nom = coach.getNom() != null ? coach.getNom() : "";
+            String prenom = coach.getPrenom() != null ? coach.getPrenom() : "";
+            coachNom = (nom + " " + prenom).trim();
+        }
+
+        long nombreReservationsAcceptees = (coach != null && seance != null)
+                ? reservationSeanceRepository.countByCoachIdAndSeanceIdAndStatut(
+                coach.getId(),
+                seance.getId(),
+                StatutReservation.ACCEPTEE
+        )
+                : 0;
+
+        boolean complet = nombreReservationsAcceptees >= MAX_ATHLETES_PAR_COACH_ET_SEANCE;
 
         return ReservationSeanceDto.builder()
                 .id(reservation.getId())
@@ -161,8 +253,12 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
                 .athleteId(athlete != null ? athlete.getId() : null)
                 .athleteNomComplet(athleteNom)
                 .athleteEmail(athlete != null ? athlete.getEmail() : null)
+                .coachId(coach != null ? coach.getId() : null)
+                .coachNomComplet(coachNom)
                 .statut(reservation.getStatut() != null ? reservation.getStatut().name() : null)
                 .dateReservation(reservation.getDateReservation() != null ? reservation.getDateReservation().toString() : null)
+                .nombreAthletesCoachEtSeance(nombreReservationsAcceptees)
+                .complet(complet)
                 .build();
     }
 
@@ -172,6 +268,43 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
             String nom = athlete.getNom() != null ? athlete.getNom() : "";
             String prenom = athlete.getPrenom() != null ? athlete.getPrenom() : "";
             athleteNom = (nom + " " + prenom).trim();
+        }
+
+        User coach = seance.getCoach();
+
+        String coachNom = "";
+        if (coach != null) {
+            String nom = coach.getNom() != null ? coach.getNom() : "";
+            String prenom = coach.getPrenom() != null ? coach.getPrenom() : "";
+            coachNom = (nom + " " + prenom).trim();
+        }
+
+        long nombreReservationsAcceptees = coach != null
+                ? reservationSeanceRepository.countByCoachIdAndSeanceIdAndStatut(
+                coach.getId(),
+                seance.getId(),
+                StatutReservation.ACCEPTEE
+        )
+                : 0;
+
+        boolean complet = nombreReservationsAcceptees >= MAX_ATHLETES_PAR_COACH_ET_SEANCE;
+
+        boolean annulee = "ANNULEE".equalsIgnoreCase(seance.getStatut());
+        boolean annuleeMoinsDe24h = false;
+        String messageAnnulation = null;
+
+        if (annulee && seance.getDateSeance() != null && seance.getHeureSeance() != null) {
+            java.time.LocalDateTime dateHeureSeance = java.time.LocalDateTime.of(
+                    seance.getDateSeance(),
+                    seance.getHeureSeance()
+            );
+
+            annuleeMoinsDe24h = java.time.LocalDateTime.now()
+                    .isAfter(dateHeureSeance.minusHours(24));
+
+            messageAnnulation = annuleeMoinsDe24h
+                    ? "Annulée moins de 24h avant"
+                    : "Cette séance a été annulée";
         }
 
         return ReservationSeanceDto.builder()
@@ -184,29 +317,35 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
                 .athleteId(athlete.getId())
                 .athleteNomComplet(athleteNom)
                 .athleteEmail(athlete.getEmail())
+                .coachId(coach != null ? coach.getId() : null)
+                .coachNomComplet(coachNom)
+                .nombreAthletesCoachEtSeance(nombreReservationsAcceptees)
+                .complet(complet)
                 .statut(reservation != null && reservation.getStatut() != null
                         ? reservation.getStatut().name()
                         : "NON_RESERVEE")
+                .seanceStatut(seance.getStatut().toUpperCase().replace("É", "E"))                .annuleeMoinsDe24h(annuleeMoinsDe24h)
+                .messageAnnulation(messageAnnulation)
                 .dateReservation(reservation != null && reservation.getDateReservation() != null
                         ? reservation.getDateReservation().toString()
                         : null)
                 .build();
     }
 
-    private void sendSeanceEmail(Seance seance, User athlete) {
+    private void sendSeanceEmail(Seance seance, User athlete, User coach) {
         String athleteFullName = ((athlete.getPrenom() != null ? athlete.getPrenom() : "") + " " +
                 (athlete.getNom() != null ? athlete.getNom() : "")).trim();
 
         String coachNomComplet = "";
         String specialite = "Spécialité non définie";
 
-        if (seance.getCoach() != null) {
-            String prenomCoach = seance.getCoach().getPrenom() != null ? seance.getCoach().getPrenom() : "";
-            String nomCoach = seance.getCoach().getNom() != null ? seance.getCoach().getNom() : "";
+        if (coach != null) {
+            String prenomCoach = coach.getPrenom() != null ? coach.getPrenom() : "";
+            String nomCoach = coach.getNom() != null ? coach.getNom() : "";
             coachNomComplet = (prenomCoach + " " + nomCoach).trim();
 
-            if (seance.getCoach().getSpecialite() != null) {
-                specialite = seance.getCoach().getSpecialite().getTitle();
+            if (coach.getSpecialite() != null) {
+                specialite = coach.getSpecialite().getTitle();
             }
         }
 
@@ -266,9 +405,16 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
         emailService.sendEmail(athlete.getEmail(), subject, content);
     }
 
-    private void sendReservationRefusedEmail(Seance seance, User athlete) {
+    private void sendReservationRefusedEmail(Seance seance, User athlete, User coach) {
         String athleteFullName = ((athlete.getPrenom() != null ? athlete.getPrenom() : "") + " " +
                 (athlete.getNom() != null ? athlete.getNom() : "")).trim();
+
+        String coachNomComplet = "";
+        if (coach != null) {
+            String prenomCoach = coach.getPrenom() != null ? coach.getPrenom() : "";
+            String nomCoach = coach.getNom() != null ? coach.getNom() : "";
+            coachNomComplet = (prenomCoach + " " + nomCoach).trim();
+        }
 
         String subject = "Réservation refusée - Académie Sportive";
 
@@ -283,7 +429,7 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
                     <div style='padding: 28px;'>
                         <h2 style='margin-top: 0; color: #111827;'>Bonjour %s,</h2>
                         <p style='font-size: 15px; line-height: 1.7; color: #374151;'>
-                            Votre réservation pour la séance <strong>%s</strong> a été refusée.
+                            Votre réservation pour la séance <strong>%s</strong> avec le coach <strong>%s</strong> a été refusée.
                         </p>
                         <p style='font-size: 15px; line-height: 1.7; color: #374151;'>
                             Consultez votre tableau de bord pour voir les autres séances disponibles.
@@ -298,7 +444,8 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
             </div>
             """.formatted(
                 athleteFullName,
-                seance.getTheme()
+                seance.getTheme(),
+                coachNomComplet
         );
 
         emailService.sendEmail(athlete.getEmail(), subject, content);

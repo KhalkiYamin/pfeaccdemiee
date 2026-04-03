@@ -1,5 +1,8 @@
 package com.pfe.pfeaccdemie.controller;
-
+import java.util.Map;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 import java.util.UUID;
 
@@ -77,12 +80,20 @@ public class AdminController {
     }
 
 
-    @DeleteMapping("/users/{id}")
-    public String deleteUser(@PathVariable Long id) {
+    @PutMapping("/users/{id}/status")
+    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
-        userRepository.delete(user);
-        return "Utilisateur supprimé";
+
+        Boolean enabled = body.get("enabled");
+        if (enabled == null) {
+            return ResponseEntity.badRequest().body("Champ enabled obligatoire");
+        }
+
+        user.setEnabled(enabled);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Statut utilisateur mis à jour avec succès");
     }
 
     @GetMapping("/dashboard")
