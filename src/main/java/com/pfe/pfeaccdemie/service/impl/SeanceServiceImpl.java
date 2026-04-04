@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -185,6 +186,11 @@ public class SeanceServiceImpl implements SeanceService {
         }
 
         Seance updated = seanceRepository.save(seance);
+
+        if (dto.getStatut() != null && isStatusAnnulee(dto.getStatut())) {
+            gererAnnulationReservations(updated);
+        }
+
         return mapToDto(updated);
     }
 
@@ -198,12 +204,32 @@ public class SeanceServiceImpl implements SeanceService {
         Seance seance = seanceRepository.findById(seanceId)
                 .orElseThrow(() -> new RuntimeException("Séance introuvable"));
 
-        if ("ANNULEE".equalsIgnoreCase(seance.getStatut())) {
+        if (isStatusAnnulee(seance.getStatut())) {
             throw new RuntimeException("Cette séance est déjà annulée");
         }
 
+        seance.setStatut("ANNULEE");
+        Seance saved = seanceRepository.save(seance);
+
+        gererAnnulationReservations(saved);
+
+        return mapToDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteSeance(Long seanceId) {
+        Seance seance = seanceRepository.findById(seanceId)
+                .orElseThrow(() -> new RuntimeException("Séance introuvable"));
+
+        presenceRepository.deleteBySeanceId(seanceId);
+        reservationSeanceRepository.deleteBySeanceId(seanceId);
+        seanceRepository.delete(seance);
+    }
+
+    private void gererAnnulationReservations(Seance seance) {
         if (seance.getDateSeance() == null || seance.getHeureSeance() == null) {
-            throw new RuntimeException("Date ou heure de séance non définie");
+            return;
         }
 
         LocalDateTime dateHeureSeance = LocalDateTime.of(
@@ -213,20 +239,21 @@ public class SeanceServiceImpl implements SeanceService {
 
         boolean moinsDe24h = LocalDateTime.now().isAfter(dateHeureSeance.minusHours(24));
 
-        seance.setStatut("ANNULEE");
-        Seance saved = seanceRepository.save(seance);
-
-        List<ReservationSeance> reservations = reservationSeanceRepository.findBySeanceId(seanceId);
+        List<ReservationSeance> reservations = reservationSeanceRepository.findBySeanceId(seance.getId());
 
         for (ReservationSeance r : reservations) {
-            if (r.getAthlete() != null && r.getAthlete().getEmail() != null && !r.getAthlete().getEmail().isBlank()) {
+            if (r.getStatut() == StatutReservation.EN_ATTENTE || r.getStatut() == StatutReservation.ACCEPTEE) {
+                r.setStatut(StatutReservation.REFUSEE);
+                reservationSeanceRepository.save(r);
+            }
 
+            if (r.getAthlete() != null && r.getAthlete().getEmail() != null && !r.getAthlete().getEmail().isBlank()) {
                 String athleteFullName = ((r.getAthlete().getPrenom() != null ? r.getAthlete().getPrenom() : "") + " " +
                         (r.getAthlete().getNom() != null ? r.getAthlete().getNom() : "")).trim();
 
                 String msg = moinsDe24h
-                        ? "⚠️ Cette séance a été annulée moins de 24h avant."
-                        : "Cette séance a été annulée.";
+                        ? "⚠️ Cette séance a été annulée moins de 24h avant. Votre réservation a été refusée automatiquement."
+                        : "Cette séance a été annulée. Votre réservation a été refusée automatiquement.";
 
                 String content = """
                     <div style='font-family: Arial, sans-serif; padding: 24px; color: #1f2937; background: #f9fafb;'>
@@ -250,10 +277,6 @@ public class SeanceServiceImpl implements SeanceService {
                                     <p style='margin: 8px 0;'><strong>Lieu :</strong> %s</p>
                                 </div>
 
-                                <p style='font-size: 15px; line-height: 1.7; color: #374151;'>
-                                    Merci de consulter votre tableau de bord pour voir les autres séances disponibles.
-                                </p>
-
                                 <p style='margin-top: 28px; color: #6b7280; font-size: 14px;'>
                                     Cordialement,<br>
                                     <strong>L'équipe Académie Sportive</strong>
@@ -264,36 +287,28 @@ public class SeanceServiceImpl implements SeanceService {
                     """.formatted(
                         athleteFullName.isBlank() ? "Athlète" : athleteFullName,
                         msg,
-                        saved.getTheme() != null ? saved.getTheme() : "-",
-                        saved.getDateSeance() != null ? saved.getDateSeance().toString() : "-",
-                        saved.getHeureSeance() != null ? saved.getHeureSeance().toString() : "-",
-                        saved.getLieu() != null ? saved.getLieu() : "-"
+                        seance.getTheme() != null ? seance.getTheme() : "-",
+                        seance.getDateSeance() != null ? seance.getDateSeance().toString() : "-",
+                        seance.getHeureSeance() != null ? seance.getHeureSeance().toString() : "-",
+                        seance.getLieu() != null ? seance.getLieu() : "-"
                 );
 
                 emailService.sendEmail(r.getAthlete().getEmail(), "Séance annulée", content);
             }
         }
-
-        SeanceDto dto = mapToDto(saved);
-        dto.setAnnuleeMoinsDe24h(moinsDe24h);
-        dto.setMessageAnnulation(
-                moinsDe24h
-                        ? "Annulée moins de 24h"
-                        : "Cette séance a été annulée"
-        );
-
-        return dto;
     }
 
-    @Override
-    @Transactional
-    public void deleteSeance(Long seanceId) {
-        Seance seance = seanceRepository.findById(seanceId)
-                .orElseThrow(() -> new RuntimeException("Séance introuvable"));
+    private boolean isStatusAnnulee(String statut) {
+        if (statut == null) {
+            return false;
+        }
 
-        presenceRepository.deleteBySeanceId(seanceId);
-        reservationSeanceRepository.deleteBySeanceId(seanceId);
-        seanceRepository.delete(seance);
+        String normalized = Normalizer.normalize(statut, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toUpperCase()
+                .trim();
+
+        return normalized.contains("ANNUL");
     }
 
     private SeanceDto mapToDto(Seance seance) {
@@ -323,7 +338,7 @@ public class SeanceServiceImpl implements SeanceService {
         Boolean annuleeMoinsDe24h = false;
         String messageAnnulation = null;
 
-        if ("ANNULEE".equalsIgnoreCase(seance.getStatut())
+        if (isStatusAnnulee(seance.getStatut())
                 && seance.getDateSeance() != null
                 && seance.getHeureSeance() != null) {
 
