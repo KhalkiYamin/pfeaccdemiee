@@ -1,5 +1,5 @@
 package com.pfe.pfeaccdemie.controller;
-
+import org.springframework.security.core.Authentication;
 import com.pfe.pfeaccdemie.dto.SeanceDto;
 import com.pfe.pfeaccdemie.service.SeanceService;
 import lombok.RequiredArgsConstructor;
@@ -62,5 +62,15 @@ public class SeanceController {
     public ResponseEntity<String> deleteSeance(@PathVariable Long id) {
         seanceService.deleteSeance(id);
         return ResponseEntity.ok("Séance supprimée avec succès");
+    }
+    @GetMapping("/last-session")
+    public ResponseEntity<?> getLastSessionForAthlete(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.badRequest().body("Utilisateur non authentifié");
+        }
+
+        String email = authentication.getName();
+        SeanceDto dto = seanceService.getLastSessionForAthlete(email);
+        return ResponseEntity.ok(dto);
     }
 }

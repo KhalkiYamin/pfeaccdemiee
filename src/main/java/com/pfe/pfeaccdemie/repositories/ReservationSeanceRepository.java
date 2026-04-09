@@ -40,4 +40,5 @@ public interface ReservationSeanceRepository extends JpaRepository<ReservationSe
     void deleteBySeanceId(Long seanceId);
 
     void deleteByAthleteId(Long athleteId);
+    ReservationSeance findTopByAthleteEmailOrderByDateReservationDesc(String email);
 }

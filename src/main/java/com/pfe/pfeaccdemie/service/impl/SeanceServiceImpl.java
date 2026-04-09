@@ -319,13 +319,22 @@ public class SeanceServiceImpl implements SeanceService {
             coachNom = (prenom + " " + nom).trim();
         }
 
-        long nombreAthletes = reservationSeanceRepository.countBySeanceIdAndStatut(
-                seance.getId(),
-                StatutReservation.ACCEPTEE
-        );
+        long nombreAthletes = 0;
+        try {
+            nombreAthletes = reservationSeanceRepository.countBySeanceIdAndStatut(
+                    seance.getId(),
+                    StatutReservation.ACCEPTEE
+            );
+        } catch (Exception e) {
+            System.out.println("Erreur count reservations: " + e.getMessage());
+            nombreAthletes = 0;
+        }
 
         String groupe = null;
-        if (seance.getSport() != null && seance.getNiveau() != null && !seance.getNiveau().isBlank()) {
+        if (seance.getSport() != null
+                && seance.getSport().getTitle() != null
+                && seance.getNiveau() != null
+                && !seance.getNiveau().isBlank()) {
             groupe = seance.getSport().getTitle() + " - " + seance.getNiveau();
         }
 
@@ -383,5 +392,19 @@ public class SeanceServiceImpl implements SeanceService {
 
     private LocalTime parseTime(String time) {
         return (time == null || time.isBlank()) ? null : LocalTime.parse(time);
+    }
+    @Override
+    public SeanceDto getLastSessionForAthlete(String email) {
+
+        ReservationSeance reservation =
+                reservationSeanceRepository.findTopByAthleteEmailOrderByDateReservationDesc(email);
+
+        if (reservation == null || reservation.getSeance() == null) {
+            return null;
+        }
+
+        Seance seance = reservation.getSeance();
+
+        return mapToDto(seance);
     }
 }

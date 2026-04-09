@@ -24,4 +24,5 @@ public interface SeanceService {
     SeanceDto annulerSeance(Long seanceId);
 
     void deleteSeance(Long seanceId);
+    SeanceDto getLastSessionForAthlete(String email);
 }

@@ -61,6 +61,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/api/paiements/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
                         .requestMatchers("/api/settings/**").permitAll()
                         .requestMatchers("/api/ressources-sportives/**").permitAll()
@@ -70,15 +71,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/coach/**").hasAuthority("COACH")
                         .requestMatchers("/api/athlete/**").hasAuthority("ATHLETE")
 
-                        .requestMatchers(HttpMethod.GET, "/api/reservations/athlete/**").hasAuthority("ATHLETE")
-                        .requestMatchers(HttpMethod.POST, "/api/reservations/seance/**").hasAuthority("ATHLETE")
+                        .requestMatchers("/api/paiements/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/athlete/**").permitAll()                        .requestMatchers(HttpMethod.POST, "/api/reservations/seance/**").hasAuthority("ATHLETE")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/seance/**").hasAuthority("COACH")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/**").hasAuthority("COACH")
 
                         .requestMatchers("/api/presences/**").hasAuthority("COACH")
 
                         .requestMatchers("/api/seances/**").authenticated()
-
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
