@@ -4,11 +4,14 @@ import com.pfe.pfeaccdemie.dto.PaiementRequest;
 import com.pfe.pfeaccdemie.dto.PaiementResponse;
 import com.pfe.pfeaccdemie.entities.Paiement;
 import com.pfe.pfeaccdemie.entities.Seance;
+import com.pfe.pfeaccdemie.entities.User;
 import com.pfe.pfeaccdemie.enums.PaymentStatus;
 import com.pfe.pfeaccdemie.repositories.PaiementRepository;
 import com.pfe.pfeaccdemie.repositories.SeanceRepository;
+import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.PaiementService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,9 +23,10 @@ public class PaiementServiceImpl implements PaiementService {
 
     private final PaiementRepository paiementRepository;
     private final SeanceRepository seanceRepository;
+    private final UserRepository userRepository;
 
     @Override
-    public PaiementResponse createPaiement(PaiementRequest request) {
+    public PaiementResponse createPaiement(PaiementRequest request, Authentication authentication) {
         double discount = request.getDiscount() != null ? request.getDiscount() : 0.0;
         double amount = request.getAmount() != null ? request.getAmount() : 0.0;
         double finalAmount = amount - discount;
@@ -32,9 +36,25 @@ public class PaiementServiceImpl implements PaiementService {
 
         String coachName = "";
         if (seance.getCoach() != null) {
-            String prenom = seance.getCoach().getPrenom() != null ? seance.getCoach().getPrenom() : "";
-            String nom = seance.getCoach().getNom() != null ? seance.getCoach().getNom() : "";
-            coachName = (prenom + " " + nom).trim();
+            String prenomCoach = seance.getCoach().getPrenom() != null ? seance.getCoach().getPrenom() : "";
+            String nomCoach = seance.getCoach().getNom() != null ? seance.getCoach().getNom() : "";
+            coachName = (prenomCoach + " " + nomCoach).trim();
+        }
+
+        String athleteName = "";
+        Long athleteId = null;
+
+        if (authentication != null && authentication.getName() != null) {
+            String email = authentication.getName();
+
+            User athlete = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Athlète introuvable avec email : " + email));
+
+            String prenomAthlete = athlete.getPrenom() != null ? athlete.getPrenom() : "";
+            String nomAthlete = athlete.getNom() != null ? athlete.getNom() : "";
+
+            athleteName = (prenomAthlete + " " + nomAthlete).trim();
+            athleteId = athlete.getId();
         }
 
         PaymentStatus status = request.getPaymentMethod() != null
@@ -45,6 +65,7 @@ public class PaiementServiceImpl implements PaiementService {
         Paiement paiement = Paiement.builder()
                 .title(seance.getTheme())
                 .coach(coachName)
+                .athleteName(athleteName)
                 .amount(amount)
                 .quantity(request.getQuantity())
                 .promoCode(request.getPromoCode())
@@ -56,7 +77,7 @@ public class PaiementServiceImpl implements PaiementService {
                 .createdAt(LocalDateTime.now())
                 .seance(seance)
                 .coachId(request.getCoachId())
-                .athleteId(request.getAthleteId())
+                .athleteId(athleteId)
                 .build();
 
         Paiement saved = paiementRepository.save(paiement);
@@ -85,6 +106,7 @@ public class PaiementServiceImpl implements PaiementService {
                 .id(paiement.getId())
                 .title(paiement.getTitle())
                 .coach(paiement.getCoach())
+                .athleteName(paiement.getAthleteName())
                 .amount(paiement.getAmount())
                 .quantity(paiement.getQuantity())
                 .promoCode(paiement.getPromoCode())
@@ -96,5 +118,4 @@ public class PaiementServiceImpl implements PaiementService {
                 .createdAt(paiement.getCreatedAt())
                 .build();
     }
-
 }

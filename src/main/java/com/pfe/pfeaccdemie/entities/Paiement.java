@@ -58,4 +58,5 @@ public class Paiement {
 
     private Long coachId;
     private Long athleteId;
+    private String athleteName;
 }

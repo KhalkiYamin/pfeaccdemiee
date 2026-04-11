@@ -15,6 +15,7 @@ public class PaiementResponse {
     private Long id;
     private String title;
     private String coach;
+    private String athleteName;
     private Double amount;
     private Integer quantity;
     private String promoCode;

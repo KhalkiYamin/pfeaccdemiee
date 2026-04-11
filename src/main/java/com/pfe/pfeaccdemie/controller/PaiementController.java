@@ -6,6 +6,7 @@ import com.pfe.pfeaccdemie.service.PaiementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,8 +20,11 @@ public class PaiementController {
     private final PaiementService paiementService;
 
     @PostMapping
-    public ResponseEntity<PaiementResponse> createPaiement(@RequestBody PaiementRequest request) {
-        PaiementResponse response = paiementService.createPaiement(request);
+    public ResponseEntity<PaiementResponse> createPaiement(
+            @RequestBody PaiementRequest request,
+            Authentication authentication
+    ) {
+        PaiementResponse response = paiementService.createPaiement(request, authentication);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
