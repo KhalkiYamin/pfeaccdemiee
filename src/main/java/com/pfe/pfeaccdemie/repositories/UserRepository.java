@@ -41,4 +41,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleAndSpecialite_IdAndEnabledAndAdminApproved(Role role, Long specialiteId, boolean enabled, boolean adminApproved);
 
     List<User> findByRoleAndSportAndNiveau(Role role, Category sport, String niveau);
+
 }

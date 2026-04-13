@@ -51,5 +51,7 @@ public class AthleteDashboardController {
             @RequestBody AthleteProfileUpdateRequest request) {
         String email = authentication.getName();
         return ResponseEntity.ok(athleteDashboardService.updateAthleteProfile(email, request));
+
+
     }
 }
