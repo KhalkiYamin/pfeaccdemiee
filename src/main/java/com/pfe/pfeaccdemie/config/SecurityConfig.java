@@ -40,7 +40,8 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder);
         return authProvider;
     }
@@ -61,6 +62,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coach/profile/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coach/profile/coach/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coach/profile/public/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coaches/*/profile").permitAll()
                         .requestMatchers("/api/paiements/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
                         .requestMatchers("/api/settings/**").permitAll()

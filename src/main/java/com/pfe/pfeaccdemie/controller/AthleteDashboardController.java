@@ -1,22 +1,23 @@
 package com.pfe.pfeaccdemie.controller;
 
-import com.pfe.pfeaccdemie.dto.AthletePresenceSummaryResponse;
-import com.pfe.pfeaccdemie.dto.AthleteSeanceDto;
-import com.pfe.pfeaccdemie.service.AthleteDashboardService;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import com.pfe.pfeaccdemie.dto.AthleteProfileResponse;
-import java.util.List;
-
-
-
-import com.pfe.pfeaccdemie.dto.AthleteProfileUpdateRequest;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.pfe.pfeaccdemie.dto.AthleteCoachDto;
+import com.pfe.pfeaccdemie.dto.AthletePresenceSummaryResponse;
+import com.pfe.pfeaccdemie.dto.AthleteProfileResponse;
+import com.pfe.pfeaccdemie.dto.AthleteProfileUpdateRequest;
+import com.pfe.pfeaccdemie.dto.AthleteSeanceDto;
+import com.pfe.pfeaccdemie.service.AthleteDashboardService;
+
+import lombok.RequiredArgsConstructor;
 
 
 
@@ -33,6 +34,12 @@ public class AthleteDashboardController {
     public ResponseEntity<List<AthleteSeanceDto>> getAthleteSeances(Authentication authentication) {
         String email = authentication.getName();
         return ResponseEntity.ok(athleteDashboardService.getAthleteSeances(email));
+    }
+
+    @GetMapping("/coaches")
+    public ResponseEntity<List<AthleteCoachDto>> getAthleteCoaches(Authentication authentication) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(athleteDashboardService.getAthleteCoaches(email));
     }
 
     @GetMapping("/presences/summary")

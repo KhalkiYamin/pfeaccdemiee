@@ -1,11 +1,18 @@
 package com.pfe.pfeaccdemie.service.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.pfe.pfeaccdemie.dto.AthleteCoachDto;
 import com.pfe.pfeaccdemie.dto.AthletePresenceSummaryResponse;
 import com.pfe.pfeaccdemie.dto.AthleteProfileResponse;
 import com.pfe.pfeaccdemie.dto.AthleteProfileUpdateRequest;
 import com.pfe.pfeaccdemie.dto.AthleteSeanceDto;
 import com.pfe.pfeaccdemie.entities.Presence;
 import com.pfe.pfeaccdemie.entities.ReservationSeance;
+import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.Seance;
 import com.pfe.pfeaccdemie.entities.StatutPresence;
 import com.pfe.pfeaccdemie.entities.StatutReservation;
@@ -14,11 +21,8 @@ import com.pfe.pfeaccdemie.repositories.PresenceRepository;
 import com.pfe.pfeaccdemie.repositories.ReservationSeanceRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
 import com.pfe.pfeaccdemie.service.AthleteDashboardService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -70,6 +74,37 @@ public class AthleteDashboardServiceImpl implements AthleteDashboardService {
         }
 
         return result;
+    }
+
+    @Override
+    public List<AthleteCoachDto> getAthleteCoaches(String email) {
+        User athlete = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Athlète introuvable"));
+
+        List<User> coaches;
+        if (athlete.getSport() != null) {
+            coaches = userRepository.findByRoleAndSport_IdAndEnabledAndAdminApproved(
+                    Role.COACH,
+                    athlete.getSport().getId(),
+                    true,
+                    true
+            );
+        } else {
+            coaches = userRepository.findByRoleAndEnabledAndAdminApproved(Role.COACH, true, true);
+        }
+
+        return coaches.stream()
+                .map(coach -> AthleteCoachDto.builder()
+                        .id(coach.getId())
+                        .nom(coach.getNom())
+                        .prenom(coach.getPrenom())
+                        .email(coach.getEmail())
+                        .telephone(coach.getTelephone())
+                        .imageProfil(coach.getImageProfil())
+                        .specialite(coach.getSpecialite() != null ? coach.getSpecialite().getTitle() : "")
+                        .experience(coach.getExperience() != null ? coach.getExperience() : 0)
+                        .build())
+                .toList();
     }
 
     @Override

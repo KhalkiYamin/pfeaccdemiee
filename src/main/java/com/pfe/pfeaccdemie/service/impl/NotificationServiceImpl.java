@@ -1,14 +1,17 @@
-package com.pfe.pfeaccdemie.service;
+package com.pfe.pfeaccdemie.service.impl;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
 
 import com.pfe.pfeaccdemie.entities.Notification;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.User;
 import com.pfe.pfeaccdemie.repositories.NotificationRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import com.pfe.pfeaccdemie.service.NotificationService;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

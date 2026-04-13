@@ -1,16 +1,31 @@
 package com.pfe.pfeaccdemie.service.impl;
 
-import com.pfe.pfeaccdemie.dto.*;
-import com.pfe.pfeaccdemie.entities.*;
-import com.pfe.pfeaccdemie.repositories.*;
-import com.pfe.pfeaccdemie.service.CoachProfileService;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.pfe.pfeaccdemie.dto.CoachDiplomaDto;
+import com.pfe.pfeaccdemie.dto.CoachExperienceDto;
+import com.pfe.pfeaccdemie.dto.CoachProfileRequest;
+import com.pfe.pfeaccdemie.dto.CoachProfileResponse;
+import com.pfe.pfeaccdemie.dto.CoachRewardDto;
+import com.pfe.pfeaccdemie.entities.CoachDiploma;
+import com.pfe.pfeaccdemie.entities.CoachExperience;
+import com.pfe.pfeaccdemie.entities.CoachProfile;
+import com.pfe.pfeaccdemie.entities.CoachReward;
+import com.pfe.pfeaccdemie.entities.Role;
+import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.repositories.CoachDiplomaRepository;
+import com.pfe.pfeaccdemie.repositories.CoachExperienceRepository;
+import com.pfe.pfeaccdemie.repositories.CoachProfileRepository;
+import com.pfe.pfeaccdemie.repositories.CoachRewardRepository;
+import com.pfe.pfeaccdemie.repositories.UserRepository;
+import com.pfe.pfeaccdemie.service.CoachProfileService;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +58,25 @@ public class CoachProfileServiceImpl implements CoachProfileService {
                 });
 
         return mapToResponse(user, profile);
+    }
+
+    @Override
+    public CoachProfileResponse getCoachProfileById(Long coachId) {
+        User coach = userRepository.findById(coachId)
+                .orElseThrow(() -> new RuntimeException("Coach introuvable"));
+
+        if (coach.getRole() != Role.COACH) {
+            throw new RuntimeException("L'utilisateur demandé n'est pas un coach");
+        }
+
+        CoachProfile profile = coachProfileRepository.findByUser_Email(coach.getEmail())
+                .orElseGet(() -> CoachProfile.builder()
+                        .user(coach)
+                        .services(new ArrayList<>())
+                        .specialisations(new ArrayList<>())
+                        .build());
+
+        return mapToResponse(coach, profile);
     }
 
     @Override
@@ -171,41 +205,47 @@ public class CoachProfileServiceImpl implements CoachProfileService {
     }
 
     private CoachProfileResponse mapToResponse(User user, CoachProfile profile) {
-        List<CoachDiplomaDto> diplomes = coachDiplomaRepository.findByCoachProfile_Id(profile.getId())
-                .stream()
-                .map(d -> {
-                    CoachDiplomaDto dto = new CoachDiplomaDto();
-                    dto.setId(d.getId());
-                    dto.setDiplome(d.getDiplome());
-                    dto.setEcoleInstitut(d.getEcoleInstitut());
-                    dto.setAnneeObtention(d.getAnneeObtention());
-                    return dto;
-                })
-                .toList();
+        List<CoachDiplomaDto> diplomes = Collections.emptyList();
+        List<CoachExperienceDto> experiences = Collections.emptyList();
+        List<CoachRewardDto> recompenses = Collections.emptyList();
 
-        List<CoachExperienceDto> experiences = coachExperienceRepository.findByCoachProfile_Id(profile.getId())
-                .stream()
-                .map(e -> {
-                    CoachExperienceDto dto = new CoachExperienceDto();
-                    dto.setId(e.getId());
-                    dto.setNomClub(e.getNomClub());
-                    dto.setDateDebut(e.getDateDebut());
-                    dto.setDateFin(e.getDateFin());
-                    dto.setPoste(e.getPoste());
-                    return dto;
-                })
-                .toList();
+        if (profile.getId() != null) {
+            diplomes = coachDiplomaRepository.findByCoachProfile_Id(profile.getId())
+                    .stream()
+                    .map(d -> {
+                        CoachDiplomaDto dto = new CoachDiplomaDto();
+                        dto.setId(d.getId());
+                        dto.setDiplome(d.getDiplome());
+                        dto.setEcoleInstitut(d.getEcoleInstitut());
+                        dto.setAnneeObtention(d.getAnneeObtention());
+                        return dto;
+                    })
+                    .toList();
 
-        List<CoachRewardDto> recompenses = coachRewardRepository.findByCoachProfile_Id(profile.getId())
-                .stream()
-                .map(r -> {
-                    CoachRewardDto dto = new CoachRewardDto();
-                    dto.setId(r.getId());
-                    dto.setRecompense(r.getRecompense());
-                    dto.setAnnee(r.getAnnee());
-                    return dto;
-                })
-                .toList();
+            experiences = coachExperienceRepository.findByCoachProfile_Id(profile.getId())
+                    .stream()
+                    .map(e -> {
+                        CoachExperienceDto dto = new CoachExperienceDto();
+                        dto.setId(e.getId());
+                        dto.setNomClub(e.getNomClub());
+                        dto.setDateDebut(e.getDateDebut());
+                        dto.setDateFin(e.getDateFin());
+                        dto.setPoste(e.getPoste());
+                        return dto;
+                    })
+                    .toList();
+
+            recompenses = coachRewardRepository.findByCoachProfile_Id(profile.getId())
+                    .stream()
+                    .map(r -> {
+                        CoachRewardDto dto = new CoachRewardDto();
+                        dto.setId(r.getId());
+                        dto.setRecompense(r.getRecompense());
+                        dto.setAnnee(r.getAnnee());
+                        return dto;
+                    })
+                    .toList();
+        }
 
         return CoachProfileResponse.builder()
                 .userId(user.getId())
