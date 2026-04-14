@@ -18,4 +18,8 @@ public class AthleteProfileResponse {
     private String sport;
     private String niveau;
     private String telephone;
+
+    private Boolean hasActiveSubscription;
+    private String subscriptionType;
+    private String subscriptionExpiry;
 }

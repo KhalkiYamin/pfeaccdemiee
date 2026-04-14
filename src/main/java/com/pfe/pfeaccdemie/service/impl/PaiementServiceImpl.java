@@ -81,7 +81,6 @@ public class PaiementServiceImpl implements PaiementService {
                 .build();
 
         Paiement saved = paiementRepository.save(paiement);
-
         return mapToResponse(saved);
     }
 
@@ -99,6 +98,21 @@ public class PaiementServiceImpl implements PaiementService {
                 .orElseThrow(() -> new RuntimeException("Paiement introuvable avec id : " + id));
 
         return mapToResponse(paiement);
+    }
+
+    @Override
+    public PaiementResponse confirmCashPayment(Long id) {
+        Paiement paiement = paiementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Paiement introuvable avec id : " + id));
+
+        if (paiement.getStatus() != PaymentStatus.PENDING_CASH) {
+            throw new RuntimeException("Ce paiement n'est pas en attente de confirmation espèce.");
+        }
+
+        paiement.setStatus(PaymentStatus.PAID);
+        Paiement saved = paiementRepository.save(paiement);
+
+        return mapToResponse(saved);
     }
 
     private PaiementResponse mapToResponse(Paiement paiement) {

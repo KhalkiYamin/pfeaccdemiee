@@ -35,36 +35,47 @@ public class ChatbotAthleteService {
         User athlete = userRepository.findByEmail(email).orElse(null);
 
         if (athlete == null) {
-            return new ChatResponseDto("Athlete not found.");
+            return new ChatResponseDto("لم يتم العثور على بيانات الرياضي.");
         }
 
         String lowerMessage = message.toLowerCase().trim();
 
-        if (lowerMessage.contains("recommend")
-                || lowerMessage.contains("recommended")
-                || lowerMessage.contains("suggest")
-                || lowerMessage.contains("session for me")) {
+        if (containsAny(lowerMessage,
+                "recommend", "recommended", "suggest", "session for me",
+                "اقترح", "اقتراح", "أنصح", "تنصحني", "حصة مناسبة", "الحصة المناسبة")) {
             return handleRecommendations(athlete, message);
         }
 
-        if (lowerMessage.contains("coach")) {
+        if (containsAny(lowerMessage,
+                "coach", "coaches",
+                "مدرب", "مدربين", "المدربين", "قائمة المدربين")) {
             return handleCoaches();
         }
 
-        if (lowerMessage.contains("next session")
-                || lowerMessage.contains("upcoming")
-                || lowerMessage.contains("my sessions")) {
+        if (containsAny(lowerMessage,
+                "next session", "upcoming", "my sessions",
+                "حصصي", "الحصص القادمة", "الحصص الجاية", "حصصي القادمة")) {
             return handleNextSessions(email, athlete);
         }
 
-        if (lowerMessage.contains("reservation")
-                || lowerMessage.contains("booking")) {
+        if (containsAny(lowerMessage,
+                "reservation", "booking", "reservations",
+                "حجز", "حجوزات", "حجزي", "حجوزاتي")) {
             return handleReservations(email, athlete);
         }
 
         return new ChatResponseDto(
-                "Hello " + athlete.getNom() + ", I can help you with your reservations, upcoming sessions, coaches, and recommended sessions."
+                "مرحبًا " + athlete.getNom() + "، يمكنني مساعدتك في الحجوزات، الحصص القادمة، المدربين، واقتراح الحصص المناسبة لك."
         );
+    }
+
+    private boolean containsAny(String message, String... keywords) {
+        for (String keyword : keywords) {
+            if (message.contains(keyword.toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ChatResponseDto handleReservations(String email, User athlete) {
@@ -76,26 +87,26 @@ public class ChatbotAthleteService {
                 .toList();
 
         if (filteredReservations.isEmpty()) {
-            return new ChatResponseDto("You do not have any active reservations yet.");
+            return new ChatResponseDto("ليس لديك أي حجوزات نشطة حاليًا.");
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Hello ")
+        sb.append("مرحبًا ")
                 .append(athlete.getNom())
-                .append(", here are your active reservations:\n");
+                .append("، هذه هي حجوزاتك النشطة:\n");
 
         for (ReservationSeance reservation : filteredReservations) {
-            sb.append("- Session: ")
+            sb.append("- الحصة: ")
                     .append(reservation.getSeance().getTheme())
-                    .append(" | Status: ")
+                    .append(" | الحالة: ")
                     .append(reservation.getStatut());
 
             if (reservation.getSeance().getDateSeance() != null) {
-                sb.append(" | Date: ").append(reservation.getSeance().getDateSeance());
+                sb.append(" | التاريخ: ").append(reservation.getSeance().getDateSeance());
             }
 
             if (reservation.getSeance().getHeureSeance() != null) {
-                sb.append(" | Time: ").append(reservation.getSeance().getHeureSeance());
+                sb.append(" | الوقت: ").append(reservation.getSeance().getHeureSeance());
             }
 
             sb.append("\n");
@@ -115,24 +126,24 @@ public class ChatbotAthleteService {
                 .toList();
 
         if (upcomingSessions.isEmpty()) {
-            return new ChatResponseDto("You do not have any upcoming accepted sessions.");
+            return new ChatResponseDto("ليس لديك أي حصص مقبولة قادمة حاليًا.");
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Hello ")
+        sb.append("مرحبًا ")
                 .append(athlete.getNom())
-                .append(", here are your upcoming sessions:\n");
+                .append("، هذه هي حصصك القادمة:\n");
 
         for (ReservationSeance reservation : upcomingSessions) {
-            sb.append("- Session: ")
+            sb.append("- الحصة: ")
                     .append(reservation.getSeance().getTheme());
 
             if (reservation.getSeance().getDateSeance() != null) {
-                sb.append(" | Date: ").append(reservation.getSeance().getDateSeance());
+                sb.append(" | التاريخ: ").append(reservation.getSeance().getDateSeance());
             }
 
             if (reservation.getSeance().getHeureSeance() != null) {
-                sb.append(" | Time: ").append(reservation.getSeance().getHeureSeance());
+                sb.append(" | الوقت: ").append(reservation.getSeance().getHeureSeance());
             }
 
             sb.append("\n");
@@ -145,10 +156,10 @@ public class ChatbotAthleteService {
         List<User> coaches = userRepository.findByRole(Role.COACH);
 
         if (coaches.isEmpty()) {
-            return new ChatResponseDto("No coaches are available at the moment.");
+            return new ChatResponseDto("لا يوجد مدربون متاحون في الوقت الحالي.");
         }
 
-        StringBuilder sb = new StringBuilder("Here is the list of coaches:\n");
+        StringBuilder sb = new StringBuilder("هذه قائمة المدربين:\n");
 
         for (User coach : coaches) {
             sb.append("- ")
@@ -157,7 +168,7 @@ public class ChatbotAthleteService {
                     .append(coach.getPrenom());
 
             if (coach.getEmail() != null) {
-                sb.append(" | Email: ").append(coach.getEmail());
+                sb.append(" | البريد الإلكتروني: ").append(coach.getEmail());
             }
 
             sb.append("\n");
@@ -168,7 +179,7 @@ public class ChatbotAthleteService {
 
     private ChatResponseDto handleRecommendations(User athlete, String message) {
         if (athlete.getSport() == null || athlete.getNiveau() == null) {
-            return new ChatResponseDto("Your profile does not have enough information yet for session recommendations.");
+            return new ChatResponseDto("ملفك الرياضي لا يحتوي بعد على معلومات كافية لاقتراح الحصص المناسبة.");
         }
 
         List<Seance> seances = seanceRepository.findBySportIdAndNiveau(
@@ -185,40 +196,41 @@ public class ChatbotAthleteService {
                 .toList();
 
         if (recommendedSeances.isEmpty()) {
-            return new ChatResponseDto("No recommended sessions are available for your level and sport right now.");
+            return new ChatResponseDto("لا توجد حصص مقترحة متاحة حاليًا حسب مستواك ونوع الرياضة.");
         }
 
         StringBuilder data = new StringBuilder();
-        data.append("Athlete name: ").append(athlete.getNom()).append(" ").append(athlete.getPrenom()).append("\n");
-        data.append("Sport: ").append(athlete.getSport().getTitle()).append("\n");
-        data.append("Level: ").append(athlete.getNiveau()).append("\n");
-        data.append("Available sessions:\n");
+        data.append("اسم الرياضي: ").append(athlete.getNom()).append(" ").append(athlete.getPrenom()).append("\n");
+        data.append("الرياضة: ").append(athlete.getSport().getTitle()).append("\n");
+        data.append("المستوى: ").append(athlete.getNiveau()).append("\n");
+        data.append("الحصص المتاحة:\n");
 
         for (Seance seance : recommendedSeances) {
             data.append("- ")
                     .append(seance.getTheme())
-                    .append(" | Date: ").append(seance.getDateSeance());
+                    .append(" | التاريخ: ").append(seance.getDateSeance());
 
             if (seance.getHeureSeance() != null) {
-                data.append(" | Time: ").append(seance.getHeureSeance());
+                data.append(" | الوقت: ").append(seance.getHeureSeance());
             }
 
             if (seance.getLieu() != null) {
-                data.append(" | Location: ").append(seance.getLieu());
+                data.append(" | المكان: ").append(seance.getLieu());
             }
 
             data.append("\n");
         }
 
         String prompt = """
-                You are a sports academy assistant.
-                Answer the athlete in a clear and friendly way using only the data below.
-                Recommend the most suitable sessions for the athlete.
+                أنت مساعد ذكي خاص بأكاديمية رياضية.
+                أجب دائمًا باللغة العربية بطريقة واضحة وودية.
+                استعمل فقط البيانات التالية.
+                اقترح أفضل الحصص المناسبة لهذا الرياضي.
 
-                Athlete question:
+                سؤال الرياضي:
                 %s
 
-                Data:
+                البيانات:
                 %s
                 """.formatted(message, data.toString());
 

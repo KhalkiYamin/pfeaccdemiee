@@ -13,4 +13,6 @@ public interface PaiementService {
     List<PaiementResponse> getAllPaiements();
 
     PaiementResponse getPaiementById(Long id);
+
+    PaiementResponse confirmCashPayment(Long id);
 }

@@ -1,11 +1,15 @@
 package com.pfe.pfeaccdemie.service.impl;
 
 import com.pfe.pfeaccdemie.dto.ReservationSeanceDto;
+import com.pfe.pfeaccdemie.entities.Paiement;
 import com.pfe.pfeaccdemie.entities.ReservationSeance;
 import com.pfe.pfeaccdemie.entities.Role;
 import com.pfe.pfeaccdemie.entities.Seance;
 import com.pfe.pfeaccdemie.entities.StatutReservation;
 import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.enums.PaymentStatus;
+import com.pfe.pfeaccdemie.enums.PaymentType;
+import com.pfe.pfeaccdemie.repositories.PaiementRepository;
 import com.pfe.pfeaccdemie.repositories.ReservationSeanceRepository;
 import com.pfe.pfeaccdemie.repositories.SeanceRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
@@ -27,6 +31,7 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
     private final SeanceRepository seanceRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final PaiementRepository paiementRepository;
 
     @Override
     public List<ReservationSeanceDto> getSeancesDisponiblesPourAthlete(String email) {
@@ -100,6 +105,29 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
             throw new RuntimeException("Vous avez déjà une réservation pour cette séance avec ce coach");
         }
 
+        boolean hasPaidSeance = paiementRepository.existsByAthleteIdAndSeance_IdAndStatus(
+                athlete.getId(),
+                seance.getId(),
+                PaymentStatus.PAID
+        );
+
+        boolean hasPendingCashSeance = paiementRepository.existsByAthleteIdAndSeance_IdAndStatus(
+                athlete.getId(),
+                seance.getId(),
+                PaymentStatus.PENDING_CASH
+        );
+
+        boolean hasActiveSubscription =
+                hasActiveSubscriptionForType(athlete.getId(), seance, PaymentType.MENSUEL) ||
+                        hasActiveSubscriptionForType(athlete.getId(), seance, PaymentType.SEMESTRE) ||
+                        hasActiveSubscriptionForType(athlete.getId(), seance, PaymentType.ANNUEL);
+
+        if (!hasPaidSeance && !hasPendingCashSeance && !hasActiveSubscription) {
+            throw new RuntimeException(
+                    "Vous devez d'abord effectuer le paiement de cette séance ou disposer d'un abonnement actif."
+            );
+        }
+
         long nombreReservations = reservationSeanceRepository
                 .countByCoachIdAndSeanceIdAndStatut(coachId, seanceId, StatutReservation.ACCEPTEE);
 
@@ -118,6 +146,47 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
         ReservationSeance saved = reservationSeanceRepository.save(reservation);
 
         return mapToDto(saved);
+    }
+
+    private boolean hasActiveSubscriptionForType(Long athleteId, Seance seance, PaymentType paymentType) {
+        List<Paiement> paiements = paiementRepository.findByAthleteIdAndStatusAndPaymentTypeOrderByCreatedAtDesc(
+                athleteId,
+                PaymentStatus.PAID,
+                paymentType
+        );
+
+        if (paiements.isEmpty()) {
+            return false;
+        }
+
+        LocalDateTime seanceDateTime = LocalDateTime.of(
+                seance.getDateSeance(),
+                seance.getHeureSeance()
+        );
+
+        for (Paiement paiement : paiements) {
+            if (paiement.getCreatedAt() == null) {
+                continue;
+            }
+
+            LocalDateTime start = paiement.getCreatedAt();
+            LocalDateTime end = switch (paymentType) {
+                case MENSUEL -> start.plusMonths(1);
+                case SEMESTRE -> start.plusMonths(6);
+                case ANNUEL -> start.plusYears(1);
+                default -> start;
+            };
+
+            boolean coversSeanceDate =
+                    !seanceDateTime.isBefore(start) &&
+                            !seanceDateTime.isAfter(end);
+
+            if (coversSeanceDate) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
@@ -163,14 +232,29 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
         ReservationSeance reservation = reservationSeanceRepository.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
 
-        if ("ANNULEE".equalsIgnoreCase(reservation.getSeance().getStatut())) {
+        Seance seance = reservation.getSeance();
+        User athlete = reservation.getAthlete();
+
+        boolean isPaid = paiementRepository.existsByAthleteIdAndSeance_IdAndStatus(
+                athlete.getId(),
+                seance.getId(),
+                PaymentStatus.PAID
+        );
+
+        if (!isPaid) {
+            throw new RuntimeException(
+                    "This reservation cannot be accepted because the payment is still pending admin confirmation."
+            );
+        }
+
+        if ("ANNULEE".equalsIgnoreCase(seance.getStatut())) {
             throw new RuntimeException("Impossible d'accepter: cette séance est annulée");
         }
 
         long nombreReservationsAcceptees = reservationSeanceRepository
                 .countByCoachIdAndSeanceIdAndStatut(
                         reservation.getCoach().getId(),
-                        reservation.getSeance().getId(),
+                        seance.getId(),
                         StatutReservation.ACCEPTEE
                 );
 
@@ -294,13 +378,12 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
         String messageAnnulation = null;
 
         if (annulee && seance.getDateSeance() != null && seance.getHeureSeance() != null) {
-            java.time.LocalDateTime dateHeureSeance = java.time.LocalDateTime.of(
+            LocalDateTime dateHeureSeance = LocalDateTime.of(
                     seance.getDateSeance(),
                     seance.getHeureSeance()
             );
 
-            annuleeMoinsDe24h = java.time.LocalDateTime.now()
-                    .isAfter(dateHeureSeance.minusHours(24));
+            annuleeMoinsDe24h = LocalDateTime.now().isAfter(dateHeureSeance.minusHours(24));
 
             messageAnnulation = annuleeMoinsDe24h
                     ? "Annulée moins de 24h avant"
@@ -324,7 +407,10 @@ public class ReservationSeanceServiceImpl implements ReservationSeanceService {
                 .statut(reservation != null && reservation.getStatut() != null
                         ? reservation.getStatut().name()
                         : "NON_RESERVEE")
-                .seanceStatut(seance.getStatut().toUpperCase().replace("É", "E"))                .annuleeMoinsDe24h(annuleeMoinsDe24h)
+                .seanceStatut(seance.getStatut() != null
+                        ? seance.getStatut().toUpperCase().replace("É", "E")
+                        : null)
+                .annuleeMoinsDe24h(annuleeMoinsDe24h)
                 .messageAnnulation(messageAnnulation)
                 .dateReservation(reservation != null && reservation.getDateReservation() != null
                         ? reservation.getDateReservation().toString()

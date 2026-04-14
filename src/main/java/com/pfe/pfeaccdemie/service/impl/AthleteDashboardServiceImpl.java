@@ -1,6 +1,8 @@
 package com.pfe.pfeaccdemie.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -10,6 +12,7 @@ import com.pfe.pfeaccdemie.dto.AthletePresenceSummaryResponse;
 import com.pfe.pfeaccdemie.dto.AthleteProfileResponse;
 import com.pfe.pfeaccdemie.dto.AthleteProfileUpdateRequest;
 import com.pfe.pfeaccdemie.dto.AthleteSeanceDto;
+import com.pfe.pfeaccdemie.entities.Paiement;
 import com.pfe.pfeaccdemie.entities.Presence;
 import com.pfe.pfeaccdemie.entities.ReservationSeance;
 import com.pfe.pfeaccdemie.entities.Role;
@@ -17,6 +20,9 @@ import com.pfe.pfeaccdemie.entities.Seance;
 import com.pfe.pfeaccdemie.entities.StatutPresence;
 import com.pfe.pfeaccdemie.entities.StatutReservation;
 import com.pfe.pfeaccdemie.entities.User;
+import com.pfe.pfeaccdemie.enums.PaymentStatus;
+import com.pfe.pfeaccdemie.enums.PaymentType;
+import com.pfe.pfeaccdemie.repositories.PaiementRepository;
 import com.pfe.pfeaccdemie.repositories.PresenceRepository;
 import com.pfe.pfeaccdemie.repositories.ReservationSeanceRepository;
 import com.pfe.pfeaccdemie.repositories.UserRepository;
@@ -31,6 +37,7 @@ public class AthleteDashboardServiceImpl implements AthleteDashboardService {
     private final PresenceRepository presenceRepository;
     private final UserRepository userRepository;
     private final ReservationSeanceRepository reservationSeanceRepository;
+    private final PaiementRepository paiementRepository;
 
     @Override
     public List<AthleteSeanceDto> getAthleteSeances(String email) {
@@ -157,6 +164,16 @@ public class AthleteDashboardServiceImpl implements AthleteDashboardService {
         String niveau = athlete.getNiveau() != null ? athlete.getNiveau() : "";
         String telephone = athlete.getTelephone() != null ? athlete.getTelephone() : "";
 
+        Paiement activeSubscription = getLatestActiveSubscription(athlete.getId());
+
+        boolean hasActiveSubscription = activeSubscription != null;
+        String subscriptionType = activeSubscription != null && activeSubscription.getPaymentType() != null
+                ? activeSubscription.getPaymentType().name()
+                : "";
+        String subscriptionExpiry = activeSubscription != null && activeSubscription.getCreatedAt() != null
+                ? calculateSubscriptionExpiry(activeSubscription).toLocalDate().toString()
+                : null;
+
         return AthleteProfileResponse.builder()
                 .nom(athlete.getNom() != null ? athlete.getNom() : "")
                 .prenom(athlete.getPrenom() != null ? athlete.getPrenom() : "")
@@ -164,6 +181,9 @@ public class AthleteDashboardServiceImpl implements AthleteDashboardService {
                 .sport(sport)
                 .niveau(niveau)
                 .telephone(telephone)
+                .hasActiveSubscription(hasActiveSubscription)
+                .subscriptionType(subscriptionType)
+                .subscriptionExpiry(subscriptionExpiry)
                 .build();
     }
 
@@ -194,6 +214,16 @@ public class AthleteDashboardServiceImpl implements AthleteDashboardService {
         String niveau = saved.getNiveau() != null ? saved.getNiveau() : "";
         String telephone = saved.getTelephone() != null ? saved.getTelephone() : "";
 
+        Paiement activeSubscription = getLatestActiveSubscription(saved.getId());
+
+        boolean hasActiveSubscription = activeSubscription != null;
+        String subscriptionType = activeSubscription != null && activeSubscription.getPaymentType() != null
+                ? activeSubscription.getPaymentType().name()
+                : "";
+        String subscriptionExpiry = activeSubscription != null && activeSubscription.getCreatedAt() != null
+                ? calculateSubscriptionExpiry(activeSubscription).toLocalDate().toString()
+                : null;
+
         return AthleteProfileResponse.builder()
                 .nom(saved.getNom() != null ? saved.getNom() : "")
                 .prenom(saved.getPrenom() != null ? saved.getPrenom() : "")
@@ -201,6 +231,52 @@ public class AthleteDashboardServiceImpl implements AthleteDashboardService {
                 .sport(sport)
                 .niveau(niveau)
                 .telephone(telephone)
+                .hasActiveSubscription(hasActiveSubscription)
+                .subscriptionType(subscriptionType)
+                .subscriptionExpiry(subscriptionExpiry)
                 .build();
+    }
+
+    private Paiement getLatestActiveSubscription(Long athleteId) {
+        List<Paiement> subscriptions = new ArrayList<>();
+
+        subscriptions.addAll(
+                paiementRepository.findByAthleteIdAndStatusAndPaymentTypeOrderByCreatedAtDesc(
+                        athleteId, PaymentStatus.PAID, PaymentType.MENSUEL
+                )
+        );
+        subscriptions.addAll(
+                paiementRepository.findByAthleteIdAndStatusAndPaymentTypeOrderByCreatedAtDesc(
+                        athleteId, PaymentStatus.PAID, PaymentType.SEMESTRE
+                )
+        );
+        subscriptions.addAll(
+                paiementRepository.findByAthleteIdAndStatusAndPaymentTypeOrderByCreatedAtDesc(
+                        athleteId, PaymentStatus.PAID, PaymentType.ANNUEL
+                )
+        );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        return subscriptions.stream()
+                .filter(p -> p.getCreatedAt() != null)
+                .filter(p -> calculateSubscriptionExpiry(p).isAfter(now))
+                .max(Comparator.comparing(Paiement::getCreatedAt))
+                .orElse(null);
+    }
+
+    private LocalDateTime calculateSubscriptionExpiry(Paiement paiement) {
+        LocalDateTime start = paiement.getCreatedAt();
+
+        if (start == null || paiement.getPaymentType() == null) {
+            return LocalDateTime.MIN;
+        }
+
+        return switch (paiement.getPaymentType()) {
+            case MENSUEL -> start.plusMonths(1);
+            case SEMESTRE -> start.plusMonths(6);
+            case ANNUEL -> start.plusYears(1);
+            default -> LocalDateTime.MIN;
+        };
     }
 }

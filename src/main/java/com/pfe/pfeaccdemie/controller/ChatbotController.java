@@ -32,4 +32,5 @@ public class ChatbotController {
         String email = authentication.getName();
         return chatbotAthleteService.handleAthleteMessage(request.getMessage(), email);
     }
+
 }

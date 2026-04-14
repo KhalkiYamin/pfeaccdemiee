@@ -46,7 +46,12 @@ public class GroqChatService {
 
             Map<String, Object> systemMessage = new HashMap<>();
             systemMessage.put("role", "system");
-            systemMessage.put("content", "You are a helpful assistant.");
+            systemMessage.put("content", """
+                أنت مساعد ذكي خاص بأكاديمية رياضية.
+                أجب دائمًا باللغة العربية بطريقة واضحة وبسيطة وودية.
+                إذا كتب المستخدم بلغة أخرى يمكنك الفهم، لكن تكون الإجابة بالعربية ما لم يطلب المستخدم غير ذلك.
+                اعتمد فقط على المعلومات المتوفرة لك، ولا تخترع بيانات غير موجودة.
+                """);
 
             Map<String, Object> userMsg = new HashMap<>();
             userMsg.put("role", "user");
@@ -72,7 +77,7 @@ public class GroqChatService {
             );
 
             if (response.getBody() == null) {
-                return new ChatResponseDto("Aucune réponse du chatbot.");
+                return new ChatResponseDto("لا توجد أي إجابة من المساعد الذكي حاليًا.");
             }
 
             JsonNode root = objectMapper.readTree(response.getBody());
@@ -85,7 +90,7 @@ public class GroqChatService {
             return new ChatResponseDto(reply);
 
         } catch (Exception e) {
-            return new ChatResponseDto("Erreur chatbot : " + e.getMessage());
+            return new ChatResponseDto("حدث خطأ في المساعد الذكي: " + e.getMessage());
         }
     }
 }

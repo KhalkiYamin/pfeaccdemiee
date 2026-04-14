@@ -37,4 +37,9 @@ public class PaiementController {
     public ResponseEntity<PaiementResponse> getPaiementById(@PathVariable Long id) {
         return ResponseEntity.ok(paiementService.getPaiementById(id));
     }
+
+    @PutMapping("/{id}/confirm-cash")
+    public ResponseEntity<PaiementResponse> confirmCashPayment(@PathVariable Long id) {
+        return ResponseEntity.ok(paiementService.confirmCashPayment(id));
+    }
 }
